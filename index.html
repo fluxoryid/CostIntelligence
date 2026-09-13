@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>HPS Intelligence</title>
+<meta name="description" content="Autonomous Procurement Intelligence & Harga Perkiraan Sendiri Engine">
+<meta name="theme-color" content="#204E6B">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="HPS Intel">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app-root"><!-- rendered by app.js --></div>
+<script src="calc-core.js"></script>
+<script>window.CalcCore = module_exports_shim();
+function module_exports_shim(){
+  // Browser context: calc-core.js attaches nothing to window by itself (it only
+  // exports via module.exports for Node). Re-expose the same functions here.
+  return {
+    CATEGORIES, CLASSIFICATION_TEMPLATES, SCENARIO_DRIVER_MAP, RESEARCH_OBJECTIVES, MATURITY_LABELS,
+    hashStr, mulberry32, percentile, fmtIDR, categoryOf,
+    generateClassification, computeCoverage, generateSources, generateCostDrivers,
+    scenarioAdjustment, estimateBasePrice, shouldCostStack, bufferStockCost, bufferStockBreakdown,
+    adjustedUnitRate, rateAdjustmentBreakdown, toDisplayBasis, getRateModel, purchaseDepreciationRate,
+    modelA, modelB, modelC, modelD, triangulate, computeConfidence,
+    generateNegotiation, computeOutcomeLearning, categoryMaturity,
+  };
+}
+</script>
+<script src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* offline install optional in demo */ });
+  });
+}
+</script>
+</body>
+</html>
