@@ -1,12 +1,11 @@
 import { fetchBiKurs, pickLatestJisdor } from '../lib/bi-kurs-client.js';
 
 // USD/IDR provider for CostIntelligence.
-// Priority:
+// Production priority is strictly official Bank Indonesia evidence:
 // 1) Bank Indonesia wsKursBI official web service (JISDOR)
-// 2) Bank Indonesia official indicator page scrape
-// 3) Generic market reference fallback (display/support only)
-//
-// The response explicitly states whether the rate may materially influence HPS.
+// 2) Bank Indonesia official indicator page fallback
+// If both fail, the provider is UNAVAILABLE. A third-party market rate is not
+// silently substituted into HPS because it is not JISDOR.
 
 export async function onRequestGet() {
   const ws = await fetchWsJisdor();
@@ -15,13 +14,12 @@ export async function onRequestGet() {
   const scraped = await scrapeBiJisdor();
   if (scraped) return jsonResponse(scraped, 200, { 'Cache-Control': 'public, max-age=3600' });
 
-  const fallback = await fetchMarketRateFallback();
-  if (fallback) return jsonResponse(fallback, 200, { 'Cache-Control': 'public, max-age=900' });
-
   return jsonResponse({
-    error: 'all_sources_failed',
+    error: 'official_bi_jisdor_unavailable',
     sourceState: 'UNAVAILABLE',
-    materialUseAllowed: false
+    evidenceRole: 'OFFICIAL_FX_REFERENCE_USD_IDR',
+    materialUseAllowed: false,
+    note: 'No third-party market rate is substituted for JISDOR in production HPS.'
   }, 502);
 }
 
@@ -75,30 +73,6 @@ async function scrapeBiJisdor() {
       evidenceRole: 'OFFICIAL_FX_REFERENCE_USD_IDR',
       materialUseAllowed: true,
       publishedDateRaw: m[2],
-      retrievedAt: new Date().toISOString()
-    };
-  } catch (err) {
-    return null;
-  }
-}
-
-async function fetchMarketRateFallback() {
-  try {
-    const upstream = await fetch('https://open.er-api.com/v6/latest/USD', {
-      cf: { cacheTtl: 900, cacheEverything: true }
-    });
-    if (!upstream.ok) return null;
-    const data = await upstream.json();
-    if (data.result !== 'success' || !data.rates || typeof data.rates.IDR !== 'number') return null;
-    return {
-      pair: 'USD/IDR',
-      rate: data.rates.IDR,
-      source: 'ExchangeRate-API — market reference fallback; not BI JISDOR',
-      sourceMode: 'NON_BI_MARKET_FALLBACK',
-      sourceState: 'LIVE',
-      evidenceRole: 'SUPPORTING_FX_CONTEXT_ONLY',
-      materialUseAllowed: false,
-      publishedAt: data.time_last_update_utc || null,
       retrievedAt: new Date().toISOString()
     };
   } catch (err) {
