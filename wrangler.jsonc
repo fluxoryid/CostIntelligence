@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "costintelligence",
-  "main": "./dist/worker/index.js",
+  "main": "./worker.js",
   "compatibility_date": "2026-09-15",
   "workers_dev": true,
   "preview_urls": true,
