@@ -1,8 +1,7 @@
 // functions/api/bps-inflation.js — official BPS inflation adapter.
 // Preferred source: BPS WebAPI JSON using BPS_API_KEY.
 // Production fallback: official www.bps.go.id national press-release page.
-// The fallback exists because BPS WebAPI may return an empty HTML response to
-// cloud/serverless egress even when the API key is valid.
+// No synthetic value is used when official sources are unavailable.
 
 const DEFAULT_OFFICIAL_RELEASE_URL =
   'https://www.bps.go.id/id/pressrelease/2026/09/01/2611/inflasi-year-on-year--y-on-y--pada-agustus-2026-sebesar-3-19-persen-.html';
@@ -10,9 +9,10 @@ const DEFAULT_OFFICIAL_RELEASE_URL =
 export async function onRequestGet(context) {
   const env = (context && context.env) || {};
   const key = env.BPS_API_KEY || null;
-  let webApiDiagnostic = key ? null : { stage: 'configuration', reason: 'BPS_API_KEY_not_configured' };
+  let webApiDiagnostic = key
+    ? null
+    : { stage: 'configuration', reason: 'BPS_API_KEY_not_configured' };
 
-  // 1) Preferred route: official BPS WebAPI JSON.
   if (key) {
     const webApiResult = await tryWebApi(key);
     if (webApiResult.ok) {
@@ -21,9 +21,6 @@ export async function onRequestGet(context) {
     webApiDiagnostic = webApiResult.diagnostic || { reason: 'unknown_webapi_failure' };
   }
 
-  // 2) Official-source fallback: BPS national public press release.
-  // The environment variable allows operations to override the release URL when
-  // BPS publishes the next monthly release, without changing application code.
   const releaseUrl = env.BPS_INFLATION_RELEASE_URL || DEFAULT_OFFICIAL_RELEASE_URL;
   const fallback = await fetchOfficialRelease(releaseUrl);
   if (fallback.ok) {
@@ -57,9 +54,8 @@ async function tryWebApi(key) {
       bpsListUrl(key, period.year, period.month, 'inflasi'),
       bpsListUrl(key, period.year, period.month, null)
     ];
-
-    for (const listUrl of urls) {
-      const result = await fetchBpsJson(listUrl, 'list');
+    for (const url of urls) {
+      const result = await fetchBpsJson(url, 'list');
       if (!result.ok) {
         lastDiagnostic = result.diagnostic;
         continue;
@@ -74,42 +70,41 @@ async function tryWebApi(key) {
   }
 
   if (!selected) {
-    const latestUrl = 'https://webapi.bps.go.id/v1/api/list/model/pressrelease/lang/ind/domain/0000/page/1/key/' +
+    const latestUrl =
+      'https://webapi.bps.go.id/v1/api/list/model/pressrelease/lang/ind/domain/0000/page/1/key/' +
       encodeURIComponent(key) + '/';
     const result = await fetchBpsJson(latestUrl, 'latest-list');
     if (result.ok) selected = chooseInflationRelease(extractRows(result.body));
     else lastDiagnostic = result.diagnostic;
   }
 
-  if (!selected || !releaseId(selected)) {
+  const id = releaseId(selected);
+  if (!selected || !id) {
     return { ok: false, diagnostic: lastDiagnostic || { reason: 'inflation_release_not_found' } };
   }
 
-  const id = releaseId(selected);
-  const detailUrl = 'https://webapi.bps.go.id/v1/api/view/domain/0000/model/pressrelease/lang/ind/id/' +
+  const detailUrl =
+    'https://webapi.bps.go.id/v1/api/view/domain/0000/model/pressrelease/lang/ind/id/' +
     encodeURIComponent(id) + '/key/' + encodeURIComponent(key) + '/';
   const detailResult = await fetchBpsJson(detailUrl, 'detail');
   if (!detailResult.ok) return { ok: false, diagnostic: detailResult.diagnostic };
 
-  const detailBody = detailResult.body;
-  const detail = detailBody && detailBody.data && !Array.isArray(detailBody.data)
-    ? detailBody.data
-    : (detailBody && Array.isArray(detailBody.data) ? (detailBody.data[1] || detailBody.data[0] || {}) : {});
-
-  const parsed = parseInflationText(
-    clean(detail.title || selected.title || ''),
-    clean(detail.abstract || selected.abstract || '')
-  );
+  const detail = extractDetail(detailResult.body);
+  const title = clean(detail.title || selected.title || '');
+  const abstract = clean(detail.abstract || selected.abstract || '');
+  const parsed = parseInflationText(title, abstract);
   if (parsed.yoy == null) {
-    return { ok: false, diagnostic: { stage: 'detail-parse', reason: 'inflation_value_not_parsed', brsId: id } };
+    return {
+      ok: false,
+      diagnostic: { stage: 'detail-parse', reason: 'inflation_value_not_parsed', brsId: id }
+    };
   }
 
-  const releaseDate = detail.rl_date || selected.rl_date || null;
   return {
     ok: true,
     data: buildResult({
       parsed: parsed,
-      releaseDate: releaseDate,
+      releaseDate: detail.rl_date || selected.rl_date || null,
       brsId: id,
       source: 'BPS Web API — Berita Resmi Statistik (official JSON)',
       sourceMode: 'OFFICIAL_BPS_WEBAPI',
@@ -152,14 +147,12 @@ async function fetchOfficialRelease(url) {
       return { ok: false, diagnostic: diagnostic };
     }
 
-    const releaseDate = parseReleaseDateFromUrl(url) || parseReleaseDateFromText(text);
-    const brsId = parseBRSIdFromUrl(url);
     return {
       ok: true,
       data: buildResult({
         parsed: parsed,
-        releaseDate: releaseDate,
-        brsId: brsId,
+        releaseDate: parseReleaseDateFromUrl(url) || parseReleaseDateFromText(text),
+        brsId: parseBRSIdFromUrl(url),
         source: 'BPS — Berita Resmi Statistik public release (official bps.go.id)',
         sourceMode: 'OFFICIAL_BPS_PUBLIC_RELEASE_FALLBACK',
         sourceUrl: url,
@@ -167,25 +160,27 @@ async function fetchOfficialRelease(url) {
       })
     };
   } catch (e) {
-    return { ok: false, diagnostic: { stage: 'official-public-release', reason: 'fetch_exception', message: String(e), url: url } };
+    return {
+      ok: false,
+      diagnostic: { stage: 'official-public-release', reason: 'fetch_exception', message: String(e), url: url }
+    };
   }
 }
 
 function buildResult(args) {
-  const parsed = args.parsed;
   const ageDays = releaseAgeDays(args.releaseDate);
   const state = ageDays != null && ageDays > 45 ? 'STALE' : 'LIVE';
   return {
-    headlineInflationYoY: parsed.yoy,
-    cpi: parsed.cpi,
-    inflationMoM: parsed.mom,
-    inflationYTD: parsed.ytd,
+    headlineInflationYoY: args.parsed.yoy,
+    cpi: args.parsed.cpi,
+    inflationMoM: args.parsed.mom,
+    inflationYTD: args.parsed.ytd,
     unit: 'percent',
-    referencePeriod: parsed.referencePeriod,
+    referencePeriod: args.parsed.referencePeriod,
     releaseDate: args.releaseDate,
     releaseAgeDays: ageDays,
     brsId: args.brsId || null,
-    title: parsed.title || null,
+    title: args.parsed.title || null,
     source: args.source,
     sourceMode: args.sourceMode,
     sourceUrl: args.sourceUrl,
@@ -201,17 +196,24 @@ function buildResult(args) {
 
 function parseInflationText(title, body) {
   const combined = clean((title || '') + ' ' + (body || ''));
+
   const yoy = firstPercent(combined, [
     /(?:terjadi\s+)?inflasi\s+year-on-year\s*\(y-on-y\)[\s\S]{0,220}?sebesar\s*([0-9]+(?:[.,][0-9]+)?)\s*persen/i,
     /(?:inflasi\s+)?year-on-year\s*\(y-on-y\)[\s\S]{0,220}?sebesar\s*([0-9]+(?:[.,][0-9]+)?)\s*persen/i,
     /inflasi\s+y-on-y[\s\S]{0,220}?sebesar\s*([0-9]+(?:[.,][0-9]+)?)\s*persen/i
   ]);
+
   const cpi = firstPercent(combined, [
     /Indeks Harga Konsumen\s*\(IHK\)[\s\S]{0,80}?sebesar\s*([0-9]+(?:[.,][0-9]+)?)/i,
     /IHK[\s\S]{0,80}?sebesar\s*([0-9]+(?:[.,][0-9]+)?)/i
   ]);
-  const mom = signedMeasure(combined, /month[- ]to[- ]month\s*\(m-to-m\)/i);
-  const ytd = signedMeasure(combined, /year\s*to\s*date\s*\(y-to-d\)/i);
+
+  // Critical: read the percentage only AFTER the exact metric label. The old
+  // parser included text before the label, which could capture a nearby regional
+  // percentage (e.g. Morowali 1.22%) as the national m-to-m value.
+  const mom = measureAfterLabel(combined, /month[- ]to[- ]month\s*\(m-to-m\)/i);
+  const ytd = measureAfterLabel(combined, /year\s*to\s*date\s*\(y-to-d\)/i);
+
   const ref = combined.match(/pada\s+([A-Za-zÀ-ÿ]+\s+\d{4})/i);
   return {
     yoy: yoy,
@@ -221,6 +223,22 @@ function parseInflationText(title, body) {
     referencePeriod: ref ? ref[1] : null,
     title: title || null
   };
+}
+
+function measureAfterLabel(text, labelRegex) {
+  const source = String(text || '');
+  const m = labelRegex.exec(source);
+  if (!m) return null;
+
+  const after = source.slice(m.index + m[0].length, m.index + m[0].length + 220);
+  const numberMatch = after.match(/(?:tercatat\s+)?sebesar\s*([0-9]+(?:[.,][0-9]+)?)\s*persen/i);
+  if (!numberMatch) return null;
+
+  const n = toDecimal(numberMatch[1]);
+  if (n == null) return null;
+
+  const before = source.slice(Math.max(0, m.index - 90), m.index);
+  return /deflasi[^.;]{0,90}$/i.test(before) ? -n : n;
 }
 
 function bpsListUrl(key, year, month, keyword) {
@@ -267,8 +285,17 @@ async function fetchBpsJson(url, stage) {
       return { ok: false, diagnostic: diagnostic };
     }
   } catch (e) {
-    return { ok: false, diagnostic: { stage: stage, reason: 'fetch_exception', message: String(e) } };
+    return {
+      ok: false,
+      diagnostic: { stage: stage, reason: 'fetch_exception', message: String(e) }
+    };
   }
+}
+
+function extractDetail(body) {
+  if (!body || !body.data) return {};
+  if (!Array.isArray(body.data)) return body.data;
+  return body.data[1] || body.data[0] || {};
 }
 
 function extractRows(body) {
@@ -320,7 +347,10 @@ function parseBRSIdFromUrl(url) {
 }
 
 function parseReleaseDateFromText(text) {
-  const months = { januari:1, februari:2, maret:3, april:4, mei:5, juni:6, juli:7, agustus:8, september:9, oktober:10, november:11, desember:12 };
+  const months = {
+    januari: 1, februari: 2, maret: 3, april: 4, mei: 5, juni: 6,
+    juli: 7, agustus: 8, september: 9, oktober: 10, november: 11, desember: 12
+  };
   const m = String(text || '').match(/Tanggal Rilis\s*:?\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/i);
   if (!m) return null;
   const mo = months[String(m[2]).toLowerCase()];
@@ -369,20 +399,6 @@ function firstPercent(text, regexes) {
     }
   }
   return null;
-}
-
-function signedMeasure(text, labelRegex) {
-  const source = String(text || '');
-  const m = labelRegex.exec(source);
-  if (!m) return null;
-  const start = Math.max(0, m.index - 120);
-  const end = Math.min(source.length, m.index + m[0].length + 220);
-  const windowText = source.slice(start, end);
-  const numberMatch = windowText.match(/(?:sebesar|tercatat sebesar)\s*([0-9]+(?:[.,][0-9]+)?)\s*persen/i);
-  if (!numberMatch) return null;
-  const n = toDecimal(numberMatch[1]);
-  if (n == null) return null;
-  return /deflasi/i.test(windowText) ? -n : n;
 }
 
 function json(obj, status, extraHeaders) {
