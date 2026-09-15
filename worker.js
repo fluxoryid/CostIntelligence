@@ -4,6 +4,7 @@ import { onRequestGet as biRate } from './functions/api/bi-rate.js';
 import { onRequestGet as kursPajak } from './functions/api/kurs-pajak.js';
 import { onRequestGet as wbIndicator } from './functions/api/wb-indicator.js';
 import { onRequestGet as bpsInflation } from './functions/api/bps-inflation.js';
+import { onRequestGet as bpsInflationHistory } from './functions/api/bps-inflation-history.js';
 import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
@@ -15,6 +16,7 @@ const API_ROUTES = new Map([
   ['/api/kurs-pajak', kursPajak],
   ['/api/wb-indicator', wbIndicator],
   ['/api/bps-inflation', bpsInflation],
+  ['/api/bps-inflation-history', bpsInflationHistory],
   ['/api/lkpp-status', lkppStatus],
   ['/api/esdm-electricity', esdmElectricity],
   ['/api/eia-brent', eiaBrent],
