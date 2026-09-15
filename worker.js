@@ -9,16 +9,16 @@ import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 
-const BUILD_ID = 'historical-intelligence-20260915-v3';
+const BUILD_ID = 'historical-intelligence-20260915-v4';
 
 function versionHandler() {
   return new Response(JSON.stringify({
     service: 'CostIntelligence',
     buildId: BUILD_ID,
     historicalBpsRoute: true,
-    historicalBpsAdapter: 'verified-release-v3',
+    historicalBpsAdapter: 'verified-release-v3-no-store',
     historicalBiRoute: true,
-    deployedCodeExpectation: 'worker-with-bps-history-v3'
+    deployedCodeExpectation: 'worker-with-bps-history-v4'
   }), {
     status: 200,
     headers: {
