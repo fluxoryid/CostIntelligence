@@ -3,6 +3,8 @@
 // and parse the national headline values from the page at request time.
 // Numerical HPS inputs are never hard-coded. If direct official pages cannot be
 // parsed, delegate to the broader v2 discovery/derived logic.
+// Historical API responses are deliberately no-store so a newly deployed parser
+// cannot be masked by a previously cached derived response.
 
 import { onRequestGet as fallbackHistorical } from './bps-inflation-history-v2.js';
 
@@ -15,12 +17,13 @@ const VERIFIED_RELEASES = {
 
 const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const NO_STORE = { 'Cache-Control':'no-store, no-cache, must-revalidate, max-age=0' };
 
 export async function onRequestGet(context) {
   const reqUrl = new URL(context.request.url);
   const dateRaw = String(reqUrl.searchParams.get('date') || '').trim();
   const m = dateRaw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return fallbackHistorical(context);
+  if (!m) return rewrapNoStore(await fallbackHistorical(context));
 
   const year = Number(m[1]);
   const month = Number(m[2]);
@@ -32,23 +35,22 @@ export async function onRequestGet(context) {
     const direct = await fetchAndParse(url, year, month);
     if (direct.ok) {
       direct.data.requestedDate = dateRaw;
-      return json(direct.data, 200, { 'Cache-Control':'public, max-age=21600' });
+      return json(direct.data, 200, NO_STORE);
     }
     diagnostics.push(direct.diagnostic);
   }
 
   const fallback = await fallbackHistorical(context);
   if (!urls.length || (fallback && fallback.status !== 404)) {
-    // If the broader fallback succeeds, preserve its result but make the direct
-    // official-route failure visible for audit/debugging.
     if (fallback && fallback.status >= 200 && fallback.status < 300 && urls.length) {
       try {
         const body = await fallback.clone().json();
         body.verifiedReleaseDiagnostics = diagnostics;
-        return json(body, fallback.status, { 'Cache-Control':'public, max-age=21600' });
+        body.responseCachePolicy = 'NO_STORE';
+        return json(body, fallback.status, NO_STORE);
       } catch (e) {}
     }
-    return fallback;
+    return rewrapNoStore(fallback);
   }
 
   let fallbackBody = null;
@@ -60,8 +62,27 @@ export async function onRequestGet(context) {
     sourceState:'UNAVAILABLE',
     verifiedReleaseDiagnostics:diagnostics,
     fallbackDiagnostic:fallbackBody,
+    responseCachePolicy:'NO_STORE',
     note:'No historical CPI is fabricated. Exact official BPS release pages and fallback discovery paths were unavailable or not parseable.'
-  }, 404);
+  }, 404, NO_STORE);
+}
+
+async function rewrapNoStore(response) {
+  if (!response) return json({error:'empty_fallback_response'}, 502, NO_STORE);
+  try {
+    const body = await response.clone().json();
+    body.responseCachePolicy = 'NO_STORE';
+    return json(body, response.status, NO_STORE);
+  } catch (e) {
+    return new Response(await response.text(), {
+      status: response.status,
+      headers: {
+        'Content-Type': response.headers.get('content-type') || 'text/plain; charset=utf-8',
+        'Access-Control-Allow-Origin':'*',
+        ...NO_STORE
+      }
+    });
+  }
 }
 
 async function fetchAndParse(url, year, month) {
@@ -71,7 +92,7 @@ async function fetchAndParse(url, year, month) {
       headers:{
         'Accept':'text/html,application/xhtml+xml',
         'Accept-Language':'id-ID,id;q=0.9,en;q=0.8',
-        'User-Agent':'Mozilla/5.0 (compatible; CostIntelligence/1.3.2; BPS historical official-release verifier)'
+        'User-Agent':'Mozilla/5.0 (compatible; CostIntelligence/1.3.3; BPS historical official-release verifier)'
       }
     });
     const html = await r.text();
@@ -120,6 +141,7 @@ async function fetchAndParse(url, year, month) {
         cpiBase:year >= 2024 ? '2022=100' : null,
         cpiRatioMaterialUseAllowed:year >= 2024,
         derived:false,
+        responseCachePolicy:'NO_STORE',
         note:'Official national BPS CPI baseline parsed directly from a verified BPS release page. No numerical value is hard-coded.',
         retrievedAt:new Date().toISOString()
       }
@@ -141,8 +163,8 @@ function parseIndonesian(text, year, month) {
     /Indeks Harga Konsumen\s*\(IHK\)\s*(?:sebesar|tercatat sebesar)\s*([0-9]+(?:[.,][0-9]+)?)/i,
     /IHK\s*(?:sebesar|tercatat sebesar)\s*([0-9]+(?:[.,][0-9]+)?)/i
   ]);
-  const mom = signedMetric(text, new RegExp('(inflasi|deflasi)\\s+month[- ]to[- ]month\\s*\\(m-to-m\\)[^.;]{0,160}?sebesar\\s*([0-9]+(?:[.,][0-9]+)?)\\s*persen','i'));
-  const ytd = signedMetric(text, new RegExp('(inflasi|deflasi)\\s+year[- ]to[- ]date\\s*\\(y-to-d\\)[^.;]{0,160}?sebesar\\s*([0-9]+(?:[.,][0-9]+)?)\\s*persen','i'));
+  const mom = signedMetric(text, /(inflasi|deflasi)\s+month[- ]to[- ]month\s*\(m-to-m\)[^.;]{0,160}?sebesar\s*([0-9]+(?:[.,][0-9]+)?)\s*persen/i);
+  const ytd = signedMetric(text, /(inflasi|deflasi)\s+year[- ]to[- ]date\s*\(y-to-d\)[^.;]{0,160}?sebesar\s*([0-9]+(?:[.,][0-9]+)?)\s*persen/i);
   const titleMatch = text.match(new RegExp('Inflasi[^.]{0,260}?' + period + '[^.]{0,260}?persen\\.?','i'));
   return {yoy,cpi,mom,ytd,title:titleMatch ? clean(titleMatch[0]) : ('BPS national CPI / inflation ' + monthName + ' ' + year)};
 }
