@@ -4,20 +4,21 @@ import { onRequestGet as biRate } from './functions/api/bi-rate.js';
 import { onRequestGet as kursPajak } from './functions/api/kurs-pajak.js';
 import { onRequestGet as wbIndicator } from './functions/api/wb-indicator.js';
 import { onRequestGet as bpsInflation } from './functions/api/bps-inflation.js';
-import { onRequestGet as bpsInflationHistory } from './functions/api/bps-inflation-history.js';
+import { onRequestGet as bpsInflationHistory } from './functions/api/bps-inflation-history-v2.js';
 import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 
-const BUILD_ID = 'historical-intelligence-20260915-v1';
+const BUILD_ID = 'historical-intelligence-20260915-v2';
 
 function versionHandler() {
   return new Response(JSON.stringify({
     service: 'CostIntelligence',
     buildId: BUILD_ID,
     historicalBpsRoute: true,
+    historicalBpsAdapter: 'verified-release-v2',
     historicalBiRoute: true,
-    deployedCodeExpectation: 'worker-with-bps-history'
+    deployedCodeExpectation: 'worker-with-bps-history-v2'
   }), {
     status: 200,
     headers: {
@@ -67,8 +68,6 @@ export default {
       }
 
       try {
-        // versionHandler does not need the Pages-style context object; all other
-        // route handlers receive the same context shape as before.
         if (url.pathname === '/api/version') return handler();
         return await handler({
           request,
@@ -90,9 +89,6 @@ export default {
       }
     }
 
-    // Never fall through an unknown /api/* URL to the SPA. Otherwise Cloudflare
-    // static asset SPA handling can render index.html and make a missing backend
-    // route look like the application loaded successfully.
     if (url.pathname.startsWith('/api/')) {
       return new Response(JSON.stringify({
         error: 'api_route_not_found',
