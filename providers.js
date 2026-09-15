@@ -16,6 +16,21 @@
     eia: {status:'connecting', data:null}
   };
 
+  // CPI is a valid official macro cost driver, but it is not a universal
+  // procurement escalator. These rules prevent broad CPI from displacing a
+  // more specific driver such as JISDOR, UMP/UMK, ESDM tariff, fuel, principal
+  // pricing, or a construction/material index.
+  var BPS_CATEGORY_POLICY = {
+    'IT Hardware': {material:false, role:'CONTEXT', reason:'Use JISDOR, principal/OEM pricing, semiconductor/component movement, freight and import-cost evidence for material HPS escalation.'},
+    'Software/SaaS': {material:false, role:'CONTEXT', reason:'Use principal list-price/subscription uplift and contract currency. Broad CPI is contextual only.'},
+    'Manpower/BPO': {material:false, role:'CONTEXT', reason:'Use current UMP/UMK/UMSK, statutory benefits and role-specific salary evidence. CPI must not replace the wage decree.'},
+    'Construction': {material:false, role:'CONTEXT', reason:'Use construction/material indices, regional labor and project-specific inputs. General CPI is not a construction price index.'},
+    'Data Center': {material:false, role:'CONTEXT', reason:'Use ESDM electricity/tariff-adjustment parameters, FX, imported equipment and labor. CPI may be an input to the tariff mechanism but should not be applied again to the whole HPS.'},
+    'Logistics': {material:false, role:'CONTEXT', reason:'Use fuel, route, toll, labor and freight evidence. General CPI is a sanity check only.'},
+    'Payment Terminal Rental': {material:false, role:'CONTEXT', reason:'Use FX, OEM terminal price, financing cost, replacement parts, connectivity, logistics and field-service evidence.'},
+    'Other': {material:'conditional', role:'COST_DRIVER', reason:'BPS CPI may be used as a general-price proxy only when no more specific category index exists, the historical baseline period is aligned, and a reviewer explicitly accepts the proxy.'}
+  };
+
   function cacheGet(key) {
     try { return JSON.parse(localStorage.getItem(PREFIX + key) || 'null'); } catch (e) { return null; }
   }
@@ -45,7 +60,12 @@
     ]).then(function () { if (cb) cb(); });
   }
   function initWb(cb) { return fetchJson('wb','/api/wb-indicator').then(function(){ if(cb)cb(); }); }
-  function initBps(cb) { return fetchJson('bps','/api/bps-inflation').then(function(){ if(cb)cb(); }); }
+  function initBps(cb) {
+    return fetchJson('bps','/api/bps-inflation').then(function(data){
+      renderBpsTicker();
+      if(cb)cb(data);
+    });
+  }
   function initMacro(cb) {
     return Promise.all([initWb(), initBps()]).then(function(){ if(cb)cb(); });
   }
@@ -59,9 +79,49 @@
   function get(key) { return state[key].data; }
   function status(key) { return state[key].status; }
 
-  // Patch the existing CalcCore source list so BPS becomes LIVE evidence after
-  // /api/bps-inflation succeeds. This keeps BPS as a COST_DRIVER, never a
-  // product-price benchmark.
+  function bpsEffectiveStatus() {
+    var data = get('bps');
+    if (data && data.sourceState === 'STALE') return 'stale';
+    if (data && data.sourceState === 'UNAVAILABLE') return 'offline';
+    return status('bps');
+  }
+
+  function categoryPolicy(category) {
+    return BPS_CATEGORY_POLICY[category] || BPS_CATEGORY_POLICY.Other;
+  }
+
+  function ensureBpsTicker() {
+    var strip = document.querySelector('.macro-strip');
+    if (!strip) return null;
+    var existing = document.getElementById('tickerBps');
+    if (existing) return existing;
+    var wrap = document.createElement('div');
+    wrap.className = 'flex items-center gap-1.5 whitespace-nowrap';
+    wrap.innerHTML = '<span class="text-slate-400 font-medium">BPS Inflation:</span>' +
+      '<span class="font-mono-num text-cyan-400 font-semibold" id="tickerBps">—</span>';
+    strip.appendChild(wrap);
+    return document.getElementById('tickerBps');
+  }
+
+  function renderBpsTicker() {
+    var ticker = ensureBpsTicker();
+    if (!ticker) return;
+    var bps = get('bps');
+    var st = bpsEffectiveStatus();
+    if (bps && typeof bps.headlineInflationYoY === 'number') {
+      ticker.textContent = Number(bps.headlineInflationYoY).toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2}) + '% YoY' +
+        (bps.referencePeriod ? ' · ' + bps.referencePeriod : '') +
+        (st === 'stale' ? ' · STALE' : '');
+      ticker.title = (bps.source || 'BPS') + (bps.releaseDate ? ' · release ' + bps.releaseDate : '');
+    } else {
+      ticker.textContent = st === 'connecting' ? 'CONNECTING' : st === 'cached' ? 'CACHED' : st === 'stale' ? 'STALE' : 'UNAVAILABLE';
+    }
+  }
+
+  // Patch the existing CalcCore source list so BPS becomes official evidence after
+  // /api/bps-inflation succeeds. BPS CPI is never treated as a product-price
+  // benchmark; category policy determines whether it is contextual or can be a
+  // conditional general-price driver.
   function patchBpsSource() {
     if (!window.CalcCore || !window.CalcCore.generateSources || window.CalcCore.__bpsPatched) return;
     var original = window.CalcCore.generateSources;
@@ -69,21 +129,32 @@
       var sources = original(input, researched);
       var bps = state.bps && state.bps.data;
       if (!bps || typeof bps.headlineInflationYoY !== 'number') return sources;
+      var policy = categoryPolicy(input && input.category);
+      var effective = bpsEffectiveStatus();
+      var sourceStatus = effective === 'cached' ? 'CACHED' : effective === 'stale' ? 'STALE' : effective === 'online' ? 'LIVE' : 'UNAVAILABLE';
       return sources.map(function(src) {
         if (!/BPS WebAPI/i.test(String(src && src.name || ''))) return src;
         return Object.assign({}, src, {
           sourceKey: 'BPS',
-          status: state.bps.status === 'cached' ? 'CACHED' : 'LIVE',
+          name: 'BPS — National CPI / Inflation',
+          status: sourceStatus,
           value: bps.headlineInflationYoY,
-          unit: 'percent',
+          unit: 'percent YoY',
           publishedDate: bps.releaseDate || null,
           retrievedAt: bps.retrievedAt || new Date().toISOString(),
-          freshness: state.bps.status === 'cached' ? 'Aging' : 'Fresh',
+          freshness: sourceStatus === 'LIVE' ? 'Fresh' : sourceStatus === 'CACHED' ? 'Aging' : 'Stale',
           trustScore: 100,
+          sourceMode: bps.sourceMode || null,
+          sourceUrl: bps.sourceUrl || null,
+          evidenceRole: bps.evidenceRole || 'OFFICIAL_DOMESTIC_INFLATION_PRIMARY',
+          materialUseAllowed: policy.material,
+          categoryPolicy: policy,
           note: 'Official BPS national inflation: ' + bps.headlineInflationYoY + '% y-on-y' +
             (bps.referencePeriod ? ' (' + bps.referencePeriod + ')' : '') +
             (bps.cpi != null ? '; IHK ' + bps.cpi : '') +
-            '. Primary domestic inflation cost-driver; not a direct product price.'
+            (bps.inflationMoM != null ? '; m-to-m ' + bps.inflationMoM + '%' : '') +
+            (bps.inflationYTD != null ? '; y-to-d ' + bps.inflationYTD + '%' : '') +
+            '. Category policy: ' + policy.reason
         });
       });
     };
@@ -91,6 +162,8 @@
   }
 
   patchBpsSource();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderBpsTicker);
+  else renderBpsTicker();
 
   window.HPSProviders = {
     state:state,
@@ -105,12 +178,15 @@
     getBiRate:function(){return get('biRate');}, getBiRateStatus:function(){return status('biRate');}
   };
   // Existing app calls HPSWB.init during every sync; initMacro intentionally
-  // refreshes both World Bank and BPS without requiring a separate UI change.
+  // refreshes both World Bank and BPS without requiring a separate UI action.
   window.HPSWB = { init:initMacro, getValue:function(){return get('wb');}, getStatus:function(){return status('wb');} };
   window.HPSBPS = {
     init:initBps,
     getInflation:function(){return get('bps');},
-    getStatus:function(){return status('bps');}
+    getStatus:bpsEffectiveStatus,
+    getCategoryPolicy:categoryPolicy,
+    CATEGORY_POLICY:BPS_CATEGORY_POLICY,
+    renderTicker:renderBpsTicker
   };
   window.HPSLkpp = {
     init:initLkpp,
