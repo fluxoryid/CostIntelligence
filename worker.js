@@ -9,7 +9,27 @@ import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 
+const BUILD_ID = 'historical-intelligence-20260915-v1';
+
+function versionHandler() {
+  return new Response(JSON.stringify({
+    service: 'CostIntelligence',
+    buildId: BUILD_ID,
+    historicalBpsRoute: true,
+    historicalBiRoute: true,
+    deployedCodeExpectation: 'worker-with-bps-history'
+  }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      ...corsHeaders(),
+    },
+  });
+}
+
 const API_ROUTES = new Map([
+  ['/api/version', versionHandler],
   ['/api/fx-usd-idr', fxUsdIdr],
   ['/api/bi-kurs', biKurs],
   ['/api/bi-rate', biRate],
@@ -47,6 +67,9 @@ export default {
       }
 
       try {
+        // versionHandler does not need the Pages-style context object; all other
+        // route handlers receive the same context shape as before.
+        if (url.pathname === '/api/version') return handler();
         return await handler({
           request,
           env,
@@ -65,6 +88,20 @@ export default {
           headers: { 'Content-Type': 'application/json', ...corsHeaders() },
         });
       }
+    }
+
+    // Never fall through an unknown /api/* URL to the SPA. Otherwise Cloudflare
+    // static asset SPA handling can render index.html and make a missing backend
+    // route look like the application loaded successfully.
+    if (url.pathname.startsWith('/api/')) {
+      return new Response(JSON.stringify({
+        error: 'api_route_not_found',
+        path: url.pathname,
+        buildId: BUILD_ID
+      }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...corsHeaders() },
+      });
     }
 
     return env.ASSETS.fetch(request);
