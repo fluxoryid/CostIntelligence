@@ -9,7 +9,7 @@ import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 
-const BUILD_ID = 'historical-intelligence-20260915-v4';
+const BUILD_ID = 'procurement-category-dependency-20260916-v5';
 
 function versionHandler() {
   return new Response(JSON.stringify({
@@ -18,7 +18,9 @@ function versionHandler() {
     historicalBpsRoute: true,
     historicalBpsAdapter: 'verified-release-v3-no-store',
     historicalBiRoute: true,
-    deployedCodeExpectation: 'worker-with-bps-history-v4'
+    procurementCategoryDependency: true,
+    guidedProcurementFlow: true,
+    deployedCodeExpectation: 'worker-with-procurement-ux-v5'
   }), {
     status: 200,
     headers: {
