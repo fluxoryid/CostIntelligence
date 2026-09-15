@@ -1,0 +1,21 @@
+# Production Checklist
+
+- [ ] Git repository contains `index.html` and `/functions` at root.
+- [ ] Cloudflare Pages Git deployment completes successfully.
+- [ ] JISDOR endpoint returns official BI source or an informational fallback clearly identified as non-official.
+- [ ] BI-Rate endpoint returns a plausible official value.
+- [ ] Kurs Pajak returns current/appropriate weekly official FX data.
+- [ ] World Bank API response is treated as macro context, not direct product price.
+- [ ] LKPP adapter is treated as dataset/freshness evidence unless actual comparable transaction rows are parsed.
+- [ ] ESDM adapter does not invent one generic Rp/kWh tariff.
+- [ ] EIA remains unavailable until `EIA_API_KEY` is configured.
+- [ ] BPS/DJBC/UMP data remains unavailable until a real authenticated/versioned adapter or uploaded official evidence is configured.
+- [ ] Model B rejects fewer than three verified comparables.
+- [ ] Model A rejects insufficient verified driver coverage.
+- [ ] Model C has an explicit owner cost basis.
+- [ ] AI-generated/random/search-snippet price evidence is blocked.
+- [ ] Approved learning outcomes are non-demo and auditable.
+- [ ] Service-worker cache version changed for each release.
+- [ ] If Supabase is used, every exposed table has RLS enabled and two-user isolation has been tested.
+- [ ] Browser contains only the Supabase publishable key; no service-role/secret key.
+- [ ] Audit dossier export captures source lineage, models, confidence, runtime mode and vendor comparisons.

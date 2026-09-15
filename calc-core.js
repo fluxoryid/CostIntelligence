@@ -6,7 +6,7 @@
  *
  * IMPORTANT — DATA INTEGRITY:
  * baseUnitPriceIDR, driver maxDeltaPct ranges, and should-cost splits below
- * are illustrative DEMO assumptions for this prototype only. They are not
+ * are sandbox-only assumptions retained for test mode. They are not
  * live BPS/BI/LKPP/principal data. Every value derived from them is tagged
  * with a status (LIVE / CACHED / STALE / DEMO / USER PROVIDED / INTERNAL /
  * UNAVAILABLE) and must never be displayed or treated as LIVE.
@@ -268,6 +268,73 @@ var RESEARCH_OBJECTIVES = [
   'Historical market changes', 'Credible benchmark sources',
 ];
 
+
+// ---------------------------------------------------------------------------
+// Production evidence policy
+// ---------------------------------------------------------------------------
+// HYBRID_STRICT is the default for new production requests. It never invents
+// numerical evidence. DEMO_SANDBOX remains available for testing/training and
+// preserves the prototype's deterministic synthetic behaviour.
+var CALCULATION_MODES = {
+  HYBRID_STRICT: 'HYBRID_STRICT',
+  DEMO_SANDBOX: 'DEMO_SANDBOX',
+};
+
+var ACCEPTED_EVIDENCE_STATUSES = ['LIVE', 'CACHED', 'INTERNAL', 'USER PROVIDED', 'VERIFIED'];
+
+function calculationModeOf(req) {
+  return (req && req.calculationMode) || (req && req.input && req.input.calculationMode) || CALCULATION_MODES.HYBRID_STRICT;
+}
+
+function isDemoMode(req) {
+  return calculationModeOf(req) === CALCULATION_MODES.DEMO_SANDBOX;
+}
+
+function isAcceptedEvidenceStatus(status) {
+  return ACCEPTED_EVIDENCE_STATUSES.indexOf(status) !== -1;
+}
+
+function parseMarketBenchmarks(input) {
+  const raw = input && input.marketBenchmarks;
+  if (!raw) return [];
+  const vals = Array.isArray(raw) ? raw : String(raw).split(/[;,\n]+/);
+  return vals.map(function (v) {
+    if (typeof v === 'object' && v !== null) {
+      const value = Number(v.value != null ? v.value : v.price);
+      return isFinite(value) && value > 0 ? {
+        value: value,
+        status: v.status || 'USER PROVIDED',
+        source: v.source || 'Verified benchmark supplied by user',
+        observedAt: v.observedAt || null,
+      } : null;
+    }
+    const n = Number(String(v).trim().replace(/[^0-9.-]/g, ''));
+    return isFinite(n) && n > 0 ? { value: n, status: 'USER PROVIDED', source: 'Verified benchmark supplied by user', observedAt: null } : null;
+  }).filter(Boolean);
+}
+
+function findSource(req, predicate) {
+  return ((req && req.sources) || []).filter(predicate)[0] || null;
+}
+
+function sourceValue(req, predicate) {
+  const src = findSource(req, predicate);
+  if (!src || !isAcceptedEvidenceStatus(src.status) || typeof src.value !== 'number') return null;
+  return { value: src.value, status: src.status, source: src.name, retrievedAt: src.retrievedAt };
+}
+
+function assessRuntimeMode(req, models) {
+  const used = Object.keys(models || {}).map(function (k) { return models[k]; }).filter(function (m) { return m && m.value != null; });
+  if (!used.length) return { mode: 'BLOCKED', reason: 'No evidence-backed model produced a usable value.' };
+  if (used.some(function (m) { return m.status === 'DEMO'; })) return { mode: 'DEMO', reason: 'Synthetic evidence affects the recommendation.' };
+  if (used.some(function (m) { return ['HYBRID', 'PARTIAL', 'CACHED', 'STALE'].indexOf(m.status) !== -1; })) return { mode: 'HYBRID', reason: 'Recommendation uses verified evidence with incomplete/stale coverage.' };
+  // LIVE is reserved for a recommendation whose *materially used model* is
+  // live-backed. Merely having an unrelated live provider in the source
+  // registry must not upgrade a user/internal-only recommendation to LIVE.
+  const hasLive = used.some(function (m) { return m.status === 'LIVE'; });
+  return { mode: hasLive ? 'LIVE' : 'HYBRID', reason: hasLive ? 'Recommendation contains no synthetic numerical evidence and at least one materially used model is live-backed.' : 'Recommendation contains no synthetic numerical evidence but relies on internal/user-provided evidence.' };
+}
+
 function generateSources(input, researched) {
   const now = new Date();
   function daysAgo(n) {
@@ -275,28 +342,105 @@ function generateSources(input, researched) {
     d.setDate(d.getDate() - n);
     return d.toISOString().slice(0, 10);
   }
+  const tmpl = CLASSIFICATION_TEMPLATES[input.category] || CLASSIFICATION_TEMPLATES['Other'];
   const sources = [];
-  sources.push({ name: 'Bank Indonesia — USD/IDR Reference Rate (JISDOR)', status: 'DEMO', publishedDate: daysAgo(1), retrievedAt: now.toISOString(), trustScore: 70, freshness: 'Fresh', note: 'Live BI API requires an authenticated, CORS-proxied connection — not wired up in this prototype. See Settings → Data Providers.' });
-  sources.push({ name: 'BPS — Producer/Consumer Price Index (category proxy)', status: researched ? 'DEMO' : 'UNAVAILABLE', publishedDate: daysAgo(20), retrievedAt: now.toISOString(), trustScore: 65, freshness: researched ? 'Aging' : 'Stale' });
-  if (input.category === 'Manpower/BPO') {
-    sources.push({ name: 'Regional UMP/UMK Wage Decree', status: 'DEMO', publishedDate: daysAgo(200), retrievedAt: now.toISOString(), trustScore: 80, freshness: 'Aging', note: 'Annual, effective-date based — verify the current year decree before finalizing.' });
+  // Tier classification follows the master-skill doc's §31 scheme:
+  // A = official government/regulator/principal/audited internal transaction
+  // B = established international institution/recognized benchmark
+  // C = established commercial market intelligence provider
+  // D = marketplace/distributor listing
+  // E = unverified internet source (never used to independently set an HPS)
+  sources.push({ name: 'Bank Indonesia — USD/IDR Reference Rate (JISDOR)', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(1), retrievedAt: now.toISOString(), trustScore: 70, freshness: 'Fresh', note: 'BI does not publish a free, key-free JSON API for JISDOR — live override now scrapes their real published indicator page directly (bi.go.id), with a market-rate fallback if that page layout ever changes. See Settings → Data Providers.' });
+  // BPS WebAPI is real and well documented (webapi.bps.go.id/developer/) —
+  // free registration, JSON, covers IHK/CPI, inflation, IHPB, wage index,
+  // construction stats, producer prices, export/import, PDRB, regional
+  // stats. The practical blocker: BPS sits behind Cloudflare bot-detection
+  // that rejects requests from cloud-provider/serverless IPs — including
+  // Cloudflare Workers/Pages Functions themselves — so a same-stack proxy
+  // (the approach used for the FX rate below) does not work unmodified;
+  // it would need a residential-IP relay.
+  sources.push({ name: 'BPS WebAPI — IHK/Inflasi, IHPB, Indeks Upah, Statistik Konstruksi', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(20), retrievedAt: now.toISOString(), trustScore: 65, freshness: researched ? 'Aging' : 'Stale', note: 'Official BPS WebAPI requires a registered API key and dataset-specific query mapping. This package does not fabricate BPS values when that adapter is not configured.' });
+  if (input.category === 'Manpower/BPO' || input.category === 'Construction') {
+    sources.push({ name: 'Kemnaker + JDIH Pemprov — UMP/UMK/UMSK Wage Decree', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(200), retrievedAt: now.toISOString(), trustScore: 80, freshness: 'Aging', note: 'Annual, effective-date based, published per-province as PDF/web decrees — no structured API exists; verify the current year decree before finalizing.' });
   }
   if (input.category === 'IT Hardware' || input.category === 'Data Center') {
-    sources.push({ name: 'Principal/Distributor Indicative Price List', status: researched ? 'DEMO' : 'UNAVAILABLE', publishedDate: daysAgo(45), retrievedAt: now.toISOString(), trustScore: 72, freshness: 'Aging' });
+    sources.push({ name: 'Principal/Distributor Indicative Price List', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(45), retrievedAt: now.toISOString(), trustScore: 72, freshness: 'Aging' });
+  }
+  if (/^High/.test(tmpl.importExposure)) {
+    sources.push({ name: 'DJBC/CEISA 4.0 — Customs Value (NDPBM) & HS Tariff', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(30), retrievedAt: now.toISOString(), trustScore: 75, freshness: 'Aging', note: 'Real OAuth2.0 Open API exists (apis-gw.beacukai.go.id), but requires registration as a DJBC "Pengguna Jasa" (importer/PPJK) business account — not an anonymous public endpoint.' });
+    sources.push({ name: 'Kementerian Keuangan — Kurs Pajak (Weekly Customs/Tax Settlement Rate)', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(3), retrievedAt: now.toISOString(), trustScore: 98, freshness: 'Fresh', note: 'Real, free, official weekly customs/tax rate (fiskal.kemenkeu.go.id) used by DJBC/DJP to settle import duty, VAT and PPh — more precise than JISDOR for actual customs exposure, not just a market reference.' });
+    sources.push({ name: 'UN Comtrade — International Trade Price Benchmark', status: 'UNAVAILABLE', tier: 'B', publishedDate: daysAgo(60), retrievedAt: now.toISOString(), trustScore: 70, freshness: 'Stale', note: 'Real API exists but the free tier requires a registered subscription key with a limited call quota — not wired up in this prototype.' });
+    sources.push({ name: 'Freightos (FBX) — Ocean/Air Freight Benchmark', status: 'UNAVAILABLE', tier: 'C', publishedDate: daysAgo(7), retrievedAt: now.toISOString(), trustScore: 68, freshness: 'Aging', note: 'Commercial/licensed data product — needs a paid Freightos API subscription, not a free public endpoint. Treat as a benchmark, never a guaranteed executable quote.' });
+  }
+  if (input.category === 'Logistics') {
+    sources.push({ name: 'Baltic Exchange — Dry Bulk/Tanker Shipping Indices', status: 'UNAVAILABLE', tier: 'C', publishedDate: daysAgo(7), retrievedAt: now.toISOString(), trustScore: 65, freshness: 'Aging', note: 'Commercial/licensed market data — most relevant for bulk commodities, heavy equipment, and tanker-related shipping exposure; check access rights before relying on it.' });
+  }
+  if (tmpl.commodityExposure && /energy|fuel/i.test(tmpl.commodityExposure)) {
+    sources.push({ name: 'Kementerian ESDM — Electricity Tariff Regulation & Energy Reference Price', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(15), retrievedAt: now.toISOString(), trustScore: 74, freshness: 'Aging', note: 'Real, free, accessible: the electricity tariff regulation (Permen ESDM No. 7/2024, jdih.esdm.go.id) publishes the full base tariff table and adjustment formula (referencing kurs, ICP, inflation, HBA). ICP itself is published monthly as real press releases, but has no stable single-page/RSS feed to scrape reliably — see live override below for the regulation connection check.' });
+    sources.push({ name: 'EIA — Brent/WTI Crude & Petroleum Product Prices', status: 'UNAVAILABLE', tier: 'B', publishedDate: daysAgo(2), retrievedAt: now.toISOString(), trustScore: 78, freshness: 'Fresh', note: 'Official EIA Open Data API v2. Configure EIA_API_KEY in Cloudflare to activate the Brent adapter. Use as a cost driver, not a direct proxy for landed logistics cost.' });
   }
   if (input.historicalPrice) {
-    sources.push({ name: 'Internal Historical Purchase Record', status: 'INTERNAL', publishedDate: input.historicalDate || daysAgo(180), retrievedAt: now.toISOString(), trustScore: 88, freshness: 'Fresh' });
+    sources.push({ name: 'Internal Historical Purchase Record', status: 'INTERNAL', tier: 'A', value: Number(input.historicalPrice), publishedDate: input.historicalDate || daysAgo(180), retrievedAt: now.toISOString(), trustScore: 88, freshness: 'Fresh' });
   }
   if (input.supplierQuotation) {
-    sources.push({ name: 'Supplier Quotation (as provided)', status: 'USER PROVIDED', publishedDate: daysAgo(2), retrievedAt: now.toISOString(), trustScore: 75, freshness: 'Fresh' });
+    sources.push({ name: 'Supplier Quotation (as provided)', status: 'USER PROVIDED', tier: 'A', value: Number(input.supplierQuotation), publishedDate: daysAgo(2), retrievedAt: now.toISOString(), trustScore: 75, freshness: 'Fresh' });
   }
   if (input.principalQuotation) {
-    sources.push({ name: 'Principal Quotation (as provided)', status: 'USER PROVIDED', publishedDate: daysAgo(3), retrievedAt: now.toISOString(), trustScore: 78, freshness: 'Fresh' });
+    sources.push({ name: 'Principal Quotation (as provided)', status: 'USER PROVIDED', tier: 'A', value: Number(input.principalQuotation), publishedDate: daysAgo(3), retrievedAt: now.toISOString(), trustScore: 78, freshness: 'Fresh' });
   }
   if (researched) {
-    sources.push({ name: 'Market Benchmark Panel (synthetic comparable set)', status: 'DEMO', publishedDate: daysAgo(10), retrievedAt: now.toISOString(), trustScore: 60, freshness: 'Fresh', note: 'Synthetic demo comparables — replace with e-Katalog/distributor/internal PO data via the provider adapter interface.' });
+    sources.push({ name: 'LKPP Open Data — Procurement/Tender Benchmark (SIRUP/E-Katalog)', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(14), retrievedAt: now.toISOString(), trustScore: 76, freshness: 'Fresh', note: 'Real CKAN Action API at data.lkpp.go.id, confirmed reachable — live override below pulls the real dataset metadata (last-updated date, direct download link). The underlying E-Katalog transaction dataset itself is only published as an annual XLSX, not a live JSON feed, so the parsed value is a freshness/link check, not an extracted price.' });
+    sources.push({ name: 'World Bank Indicators — Macro/Commodity Sanity Check', status: 'UNAVAILABLE', tier: 'B', publishedDate: daysAgo(30), retrievedAt: now.toISOString(), trustScore: 66, freshness: 'Aging', note: 'api.worldbank.org/v2 is genuinely free and keyless — see live override below once wired up (fx-sync.js pattern). Macro validation only, not a primary Indonesia item-pricing source.' });
+    sources.push({ name: 'Bank Indonesia — BI-Rate (Financing/Cost of Money)', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(1), retrievedAt: now.toISOString(), trustScore: 80, freshness: 'Fresh', note: 'Live scrape of the same bi.go.id indicator page as JISDOR — useful for pricing financing cost, leasing, or long payment-term exposure.' });
+    if (tmpl.commodityExposure && /energy|fuel|materials/i.test(tmpl.commodityExposure)) {
+      sources.push({ name: 'World Bank Commodity Markets (Pink Sheet)', status: 'UNAVAILABLE', tier: 'B', publishedDate: daysAgo(30), retrievedAt: now.toISOString(), trustScore: 68, freshness: 'Aging', note: 'Published monthly as an Excel workbook, not a REST API — would need a scheduled download+parse job rather than a simple live proxy. Use for long-term commodity trend/reasonableness, not a spot price.' });
+    }
+    sources.push({ name: 'Satu Data Indonesia — Cross-Ministry Supplemental Data', status: 'UNAVAILABLE', tier: 'A', publishedDate: daysAgo(25), retrievedAt: now.toISOString(), trustScore: 58, freshness: 'Aging', note: 'CKAN-based portal (data.go.id); coverage and structure vary widely by ministry/agency dataset — validate each dataset individually before relying on it.' });
+  }
+  // Production policy: unconnected placeholders are never labelled DEMO
+  // unless the request explicitly opted into DEMO_SANDBOX. Live override
+  // functions below may upgrade a matching source to LIVE/CACHED/STALE.
+  if ((input.calculationMode || CALCULATION_MODES.HYBRID_STRICT) !== CALCULATION_MODES.DEMO_SANDBOX) {
+    return sources.map(function (src) {
+      if (src.status !== 'DEMO') return src;
+      return Object.assign({}, src, {
+        status: 'UNAVAILABLE',
+        freshness: src.freshness || 'Stale',
+        note: (src.note ? src.note + ' ' : '') + 'Production guard: no numerical value from this source is used until a verified adapter or uploaded evidence is available.',
+      });
+    });
   }
   return sources;
+}
+
+// Pure post-processing step: layers a real fetched USD/IDR rate onto the
+// synthetic JISDOR source entry above, without making generateSources()
+// itself async/impure (it stays deterministic and unit-testable). Called
+// by app.js after a live rate has been fetched via the Cloudflare Pages
+// Function proxy (see fx-sync.js). Never fabricates a LIVE status on its
+// own — if liveFx is null/missing, the source remains unavailable
+// unchanged.
+function applyLiveFxOverride(sources, liveFx) {
+  if (!liveFx || typeof liveFx.rate !== 'number') return sources;
+  const ageHours = (Date.now() - new Date(liveFx.retrievedAt).getTime()) / 36e5;
+  const status = ageHours <= 6 ? 'LIVE' : (ageHours <= 48 ? 'CACHED' : 'STALE');
+  const freshness = ageHours <= 6 ? 'Fresh' : (ageHours <= 48 ? 'Aging' : 'Stale');
+  const isOfficialJisdor = /Bank Indonesia JISDOR/i.test(liveFx.source || '');
+  return sources.map(function (s) {
+    if (s.name !== 'Bank Indonesia — USD/IDR Reference Rate (JISDOR)') return s;
+    return Object.assign({}, s, {
+      name: isOfficialJisdor ? 'Bank Indonesia — USD/IDR Reference Rate (JISDOR)' : 'USD/IDR Market Reference Rate (fallback)',
+      status: isOfficialJisdor ? status : 'INFORMATIONAL',
+      value: liveFx.rate,
+      publishedDate: liveFx.publishedDateRaw || (liveFx.publishedAt || liveFx.retrievedAt || '').slice(0, 10),
+      retrievedAt: liveFx.retrievedAt,
+      trustScore: isOfficialJisdor ? 98 : 45,
+      freshness: freshness,
+      note: isOfficialJisdor
+        ? 'Official live JISDOR observation parsed from Bank Indonesia’s published indicator page. Source: ' + liveFx.source + '.'
+        : 'Live fallback market USD/IDR reference because the BI JISDOR page could not be parsed. Source: ' + (liveFx.source || 'external FX provider') + '. Treat as market reference, not official JISDOR.',
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -305,14 +449,57 @@ function generateSources(input, researched) {
 
 function generateCostDrivers(req) {
   const cat = categoryOf(req.input.category);
-  const seed = hashStr(req.id + '|' + req.input.category + '|' + req.input.productName);
-  const rnd = mulberry32(seed);
-  return cat.drivers.map((d) => ({
-    name: d.name,
-    weight: d.weight,
-    delta: +(((rnd() * 2) - 1) * d.maxDeltaPct).toFixed(2),
-    status: 'DEMO',
-  }));
+  if (isDemoMode(req)) {
+    const seed = hashStr(req.id + '|' + req.input.category + '|' + req.input.productName);
+    const rnd = mulberry32(seed);
+    return cat.drivers.map((d) => ({
+      name: d.name,
+      weight: d.weight,
+      delta: +(((rnd() * 2) - 1) * d.maxDeltaPct).toFixed(2),
+      status: 'DEMO',
+      source: 'Deterministic sandbox generator',
+    }));
+  }
+
+  const observations = (req.input.costDriverObservations || []);
+  const fx = sourceValue(req, function (src) { return /USD\/IDR/.test(src.name); });
+  const historicalFx = Number(req.input.historicalFxRate);
+
+  return cat.drivers.map(function (d) {
+    let delta = null, status = 'UNAVAILABLE', source = 'No verified observation supplied';
+    const obs = observations.filter(function (o) { return o && o.name === d.name; })[0];
+    if (obs) {
+      if (isFinite(Number(obs.deltaPct))) delta = Number(obs.deltaPct);
+      else if (isFinite(Number(obs.currentValue)) && isFinite(Number(obs.baselineValue)) && Number(obs.baselineValue) !== 0) {
+        delta = ((Number(obs.currentValue) / Number(obs.baselineValue)) - 1) * 100;
+      }
+      if (delta != null) {
+        status = obs.status || 'USER PROVIDED';
+        source = obs.source || 'Verified cost-driver observation supplied by user';
+      }
+    }
+
+    if (delta == null && d.name === 'USD/IDR FX Rate' && fx && historicalFx > 0) {
+      delta = ((fx.value / historicalFx) - 1) * 100;
+      status = fx.status === 'LIVE' ? 'LIVE' : fx.status;
+      source = fx.source + ' vs user-provided historical FX baseline';
+    }
+
+    if (delta == null && /Principal/.test(d.name) && Number(req.input.principalQuotation) > 0 && Number(req.input.historicalPrice) > 0) {
+      delta = ((Number(req.input.principalQuotation) / Number(req.input.historicalPrice)) - 1) * 100;
+      status = 'USER PROVIDED';
+      source = 'Principal quotation vs historical purchase price';
+    }
+
+    return {
+      name: d.name,
+      weight: d.weight,
+      delta: delta == null ? 0 : +(delta.toFixed(2)),
+      status: status,
+      source: source,
+      verified: delta != null && status !== 'DEMO' && status !== 'UNAVAILABLE',
+    };
+  });
 }
 
 function scenarioAdjustment(driverName, scenario) {
@@ -478,47 +665,82 @@ function shouldCostStack(input, base) {
 
 function modelA(req) {
   const p0 = Number(req.input.historicalPrice);
-  if (!p0) return { value: null, status: 'UNAVAILABLE', reason: 'Missing historical purchase price — Model A (Historical Indexation) not used.' };
+  if (!p0) return { value: null, status: 'UNAVAILABLE', reason: 'Missing historical purchase price — Model A not used.' };
+
+  if (isDemoMode(req)) {
+    let escalation = 0;
+    (req.costDrivers || []).forEach(function (d) {
+      escalation += d.weight * ((d.delta / 100) + scenarioAdjustment(d.name, req.scenario));
+    });
+    return { value: p0 * (1 + escalation), status: 'DEMO', basisStatus: 'USER PROVIDED', escalationPct: +(escalation * 100).toFixed(2), basis: p0, driverCoverage: 1 };
+  }
+
+  const usable = (req.costDrivers || []).filter(function (d) { return d && d.verified && isAcceptedEvidenceStatus(d.status); });
+  const coverage = usable.reduce(function (sum, d) { return sum + Number(d.weight || 0); }, 0);
+  if (coverage < 0.15) {
+    return { value: null, status: 'INSUFFICIENT', reason: 'Historical price exists, but verified cost-driver coverage is below 15%. Supply a historical FX baseline or verified driver observations.', driverCoverage: coverage };
+  }
   let escalation = 0;
-  (req.costDrivers || []).forEach((d) => {
-    const delta = (d.delta / 100) + scenarioAdjustment(d.name, req.scenario);
-    escalation += d.weight * delta;
-  });
-  const value = p0 * (1 + escalation);
-  return { value, status: 'DEMO', basisStatus: 'USER PROVIDED', escalationPct: +(escalation * 100).toFixed(2), basis: p0 };
+  usable.forEach(function (d) { escalation += d.weight * (d.delta / 100); });
+  // Scenario values are an explicit user-controlled what-if overlay. They
+  // may affect an otherwise verified baseline even when the corresponding
+  // live driver is unavailable; they are never treated as observed evidence.
+  let scenarioOverlay = 0;
+  (req.costDrivers || []).forEach(function (d) { scenarioOverlay += d.weight * scenarioAdjustment(d.name, req.scenario); });
+  escalation += scenarioOverlay;
+  const status = scenarioOverlay !== 0 ? 'HYBRID' : (coverage >= 0.75 && usable.every(function (d) { return d.status === 'LIVE' || d.status === 'INTERNAL' || d.status === 'USER PROVIDED' || d.status === 'VERIFIED'; }) ? 'LIVE' : 'HYBRID');
+  return { value: p0 * (1 + escalation), status: status, basisStatus: 'INTERNAL', escalationPct: +(escalation * 100).toFixed(2), scenarioOverlayPct: +(scenarioOverlay * 100).toFixed(2), basis: p0, driverCoverage: +coverage.toFixed(2), usedDrivers: usable.map(function (d) { return d.name; }) };
 }
 
 function modelB(req) {
-  const base = estimateBasePrice(req.input);
-  const rnd = mulberry32(hashStr(req.id + '|B'));
-  const n = 7;
-  const points = [];
-  for (let i = 0; i < n; i++) points.push(base * (1 + ((rnd() * 0.30) - 0.15)));
+  if (isDemoMode(req)) {
+    const base = estimateBasePrice(req.input);
+    const rnd = mulberry32(hashStr(req.id + '|B'));
+    const points = [];
+    for (let i = 0; i < 7; i++) points.push(base * (1 + ((rnd() * 0.30) - 0.15)));
+    const sortedAll = [...points].sort((a, b) => a - b);
+    const q1 = percentile(sortedAll, 25), q3 = percentile(sortedAll, 75), iqr = q3 - q1;
+    const filtered = points.filter((p) => p >= q1 - 1.5 * iqr && p <= q3 + 1.5 * iqr);
+    const sortedFiltered = [...filtered].sort((a, b) => a - b);
+    return { value: percentile(sortedFiltered, 50), low: Math.min(...filtered), high: Math.max(...filtered), status: 'DEMO', n: filtered.length, points: filtered };
+  }
+
+  const observations = parseMarketBenchmarks(req.input).filter(function (o) { return isAcceptedEvidenceStatus(o.status); });
+  if (observations.length < 3) return { value: null, status: 'INSUFFICIENT', reason: 'Model B requires at least 3 verified comparable prices. Synthetic comparables are disabled in production mode.', n: observations.length };
+  const points = observations.map(function (o) { return o.value; });
   const sortedAll = [...points].sort((a, b) => a - b);
-  const q1 = percentile(sortedAll, 25), q3 = percentile(sortedAll, 75);
-  const iqr = q3 - q1;
-  const filtered = points.filter((p) => p >= q1 - 1.5 * iqr && p <= q3 + 1.5 * iqr);
-  if (filtered.length < 3) return { value: null, status: 'INSUFFICIENT', reason: 'Insufficient benchmark data points after outlier removal — Model B not used.' };
+  const q1 = percentile(sortedAll, 25), q3 = percentile(sortedAll, 75), iqr = q3 - q1;
+  const filteredObs = observations.filter(function (o) { return o.value >= q1 - 1.5 * iqr && o.value <= q3 + 1.5 * iqr; });
+  if (filteredObs.length < 3) return { value: null, status: 'INSUFFICIENT', reason: 'Fewer than 3 verified comparables remain after outlier removal.', n: filteredObs.length };
+  const filtered = filteredObs.map(function (o) { return o.value; });
   const sortedFiltered = [...filtered].sort((a, b) => a - b);
-  const median = percentile(sortedFiltered, 50);
-  return { value: median, low: Math.min(...filtered), high: Math.max(...filtered), status: 'DEMO', n: filtered.length, points: filtered };
+  const statuses = filteredObs.map(function (o) { return o.status; });
+  const status = statuses.every(function (st) { return st === 'LIVE'; }) ? 'LIVE' : 'USER PROVIDED';
+  return { value: percentile(sortedFiltered, 50), low: Math.min(...filtered), high: Math.max(...filtered), status: status, n: filtered.length, points: filtered, observations: filteredObs };
 }
 
 function modelC(req) {
-  const base = estimateBasePrice(req.input);
+  if (isDemoMode(req)) {
+    const base = estimateBasePrice(req.input);
+    const stack = shouldCostStack(req.input, base);
+    return { value: stack.total, status: 'DEMO', stack, base };
+  }
+  const base = Number(req.input.shouldCostBase);
+  if (!base || base <= 0) return { value: null, status: 'UNAVAILABLE', reason: 'Verified should-cost base is not supplied. Hard-coded category base prices are disabled in production mode.' };
   const stack = shouldCostStack(req.input, base);
-  return { value: stack.total, status: 'DEMO', stack, base };
+  return { value: stack.total, status: 'USER PROVIDED', stack, base, note: 'Total is driven by the verified should-cost base. Category split is explanatory allocation and does not inflate the total.' };
 }
 
 function modelD(req, learningEvents) {
-  const events = (learningEvents || []).filter((e) => e.category === req.input.category);
+  const all = (learningEvents || []).filter(function (e) { return e.category === req.input.category; });
+  const events = isDemoMode(req) ? all : all.filter(function (e) { return e.approvedForLearning === true && e.sourceMode !== 'DEMO'; });
   if (!req.input.historicalPrice || events.length < 3) {
-    return { value: null, status: 'UNAVAILABLE', reason: 'Insufficient internal outcome history for this category (need \u2265 3 prior outcomes). Predictive model reflects correlation only, not causation.' };
+    return { value: null, status: 'UNAVAILABLE', reason: 'Need at least 3 approved, non-demo outcome learning events in this category for Model D.' };
   }
   const avgBiasPct = events.reduce((s, e) => s + (e.bias || 0), 0) / events.length;
   const p0 = Number(req.input.historicalPrice);
   const value = p0 * (1 + (avgBiasPct / 100));
-  return { value, status: 'DEMO', note: 'Derived from average historical prediction bias observed in this category (correlation, not causal).', sampleSize: events.length };
+  return { value, status: isDemoMode(req) ? 'DEMO' : 'INTERNAL', note: 'Derived from approved historical prediction bias; correlation, not causation.', sampleSize: events.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -539,20 +761,28 @@ function toDisplayBasis(totalValue, input) {
   return totalValue;
 }
 
-function triangulate(models, weightOverride) {
+function triangulate(models, weightOverride, calculationMode) {
   const weightsDefault = weightOverride || { A: 0.30, B: 0.30, C: 0.30, D: 0.10 };
-  const available = Object.entries(models).filter(([, m]) => m && m.value != null);
+  const strict = (calculationMode || CALCULATION_MODES.HYBRID_STRICT) !== CALCULATION_MODES.DEMO_SANDBOX;
+  const available = Object.entries(models).filter(function (entry) {
+    const m = entry[1];
+    if (!m || m.value == null) return false;
+    if (strict && m.status === 'DEMO') return false;
+    return true;
+  });
   if (available.length === 0) {
-    return { recommended: null, low: null, high: null, weightsUsed: {}, error: 'No models produced a usable value — calculation error. Provide a historical price or ensure category benchmarks are available, then retry.' };
+    return { recommended: null, low: null, high: null, weightsUsed: {}, weightsExact: {}, error: 'No evidence-backed model produced a usable value. Add verified market benchmarks, a verified should-cost base, or enough historical driver evidence.' };
   }
-  const sumW = available.reduce((s, [k]) => s + (weightsDefault[k] || 0), 0) || 1;
-  const recommended = available.reduce((s, [k, m]) => s + ((weightsDefault[k] || 0) / sumW) * m.value, 0);
-  const values = available.map(([, m]) => m.value);
-  const low = Math.min(...values);
-  const high = Math.max(...values);
-  const weightsUsed = {};
-  available.forEach(([k]) => { weightsUsed[k] = +(((weightsDefault[k] || 0) / sumW)).toFixed(2); });
-  return { recommended, low, high, weightsUsed };
+  const sumW = available.reduce((s, entry) => s + (weightsDefault[entry[0]] || 0), 0) || 1;
+  const recommended = available.reduce((s, entry) => s + ((weightsDefault[entry[0]] || 0) / sumW) * entry[1].value, 0);
+  const values = available.map((entry) => entry[1].value);
+  const low = Math.min(...values), high = Math.max(...values);
+  const weightsUsed = {}, weightsExact = {};
+  available.forEach(function (entry) {
+    const k = entry[0], w = (weightsDefault[k] || 0) / sumW;
+    weightsExact[k] = w; weightsUsed[k] = +(w.toFixed(2));
+  });
+  return { recommended, low, high, weightsUsed, weightsExact };
 }
 
 // ---------------------------------------------------------------------------
@@ -560,31 +790,206 @@ function triangulate(models, weightOverride) {
 // ---------------------------------------------------------------------------
 
 function computeConfidence(req, models, sources, coverage) {
-  const available = Object.values(models).filter((m) => m && m.value != null);
+  const available = Object.values(models).filter((m) => m && m.value != null && (!isDemoMode(req) ? m.status !== 'DEMO' : true));
   const values = available.map((m) => m.value);
   const mean = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
   const variance = values.length ? values.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / values.length : 0;
   const cv = mean ? Math.sqrt(variance) / mean : 1;
   const modelAgreement = Math.max(0, 100 * (1 - Math.min(cv, 1)));
-  const avgTrust = sources.length ? sources.reduce((s, src) => s + src.trustScore, 0) / sources.length : 40;
-  const freshnessScore = sources.length ? (sources.filter((s) => s.freshness === 'Fresh').length / sources.length) * 100 : 30;
+  const acceptedSources = (sources || []).filter(function (src) {
+    if (!isAcceptedEvidenceStatus(src.status) || typeof src.value !== 'number') return false;
+    if (src.governance && (!src.governance.allowed || src.governance.role === 'CONTEXT' || src.governance.role === 'DISCOVERY_ONLY' || src.governance.role === 'REJECTED')) return false;
+    return true;
+  });
+  const avgTrust = acceptedSources.length ? acceptedSources.reduce((s, src) => s + src.trustScore, 0) / acceptedSources.length : 40;
+  const freshnessScore = acceptedSources.length ? (acceptedSources.filter((s) => s.freshness === 'Fresh').length / acceptedSources.length) * 100 : 30;
   const words = (req.input.description || '').trim().split(/\s+/).filter(Boolean);
   const specSimilarity = words.length >= 8 ? 80 : 50;
-  const benchmarkCountScore = models.B && models.B.n ? Math.min(models.B.n * 15, 100) : 20;
+  const benchmarkCountScore = models.B && models.B.n ? Math.min(models.B.n * 15, 100) : 15;
   const historicalCoverage = req.input.historicalPrice ? 90 : 20;
   const completeness = coverage.overall;
   const weighted = (avgTrust * 0.15) + (freshnessScore * 0.10) + (specSimilarity * 0.10) + (benchmarkCountScore * 0.15) + (historicalCoverage * 0.15) + (modelAgreement * 0.15) + (completeness * 0.20);
   let score = Math.round(Math.min(Math.max(weighted, 0), 100));
-  const hasWeakSource = sources.some((s) => s.status === 'DEMO' || s.status === 'UNAVAILABLE');
+  const hasDemoModel = available.some((m) => m.status === 'DEMO');
+  const hasPartialModel = available.some((m) => m.status === 'HYBRID' || m.status === 'PARTIAL');
   let capped = false;
-  if (hasWeakSource && score > 64) { score = 64; capped = true; }
-  const label = score >= 85 ? 'Very High' : (score >= 65 ? 'High' : (score >= 40 ? 'Moderate' : 'Low'));
-  return { score, label, capped, components: { avgTrust, freshnessScore, specSimilarity, benchmarkCountScore, historicalCoverage, modelAgreement, completeness } };
+  if (hasDemoModel && score > 64) { score = 64; capped = true; }
+  else if (hasPartialModel && score > 79) { score = 79; capped = true; }
+  const label = score >= 90 ? 'Very High' : (score >= 80 ? 'High' : (score >= 70 ? 'Moderate' : (score >= 60 ? 'Low' : 'Insufficient Data')));
+  return { score, label, capped, components: { avgTrust, freshnessScore, specSimilarity, benchmarkCountScore, historicalCoverage, modelAgreement, completeness, acceptedSourceCount: acceptedSources.length } };
+}
+
+// Same pattern as applyLiveFxOverride, for the World Bank Indicators line.
+// api.worldbank.org/v2 is genuinely free and keyless (confirmed), unlike
+// most of the other sources above — a real candidate for live wiring, not
+// just a cosmetic DEMO tag.
+function applyLiveWbOverride(sources, liveWb) {
+  if (!liveWb || typeof liveWb.value !== 'number') return sources;
+  const ageHours = (Date.now() - new Date(liveWb.retrievedAt).getTime()) / 36e5;
+  const status = ageHours <= 24 ? 'LIVE' : (ageHours <= 168 ? 'CACHED' : 'STALE');
+  const freshness = ageHours <= 24 ? 'Fresh' : (ageHours <= 168 ? 'Aging' : 'Stale');
+  return sources.map(function (s) {
+    if (s.name !== 'World Bank Indicators — Macro/Commodity Sanity Check') return s;
+    return Object.assign({}, s, {
+      status: status,
+      value: liveWb.value,
+      publishedDate: liveWb.year ? (liveWb.year + '-01-01') : s.publishedDate,
+      retrievedAt: liveWb.retrievedAt,
+      trustScore: 74,
+      freshness: freshness,
+      note: 'Live: ' + (liveWb.indicatorLabel || 'World Bank indicator') + ' for Indonesia = ' + liveWb.value + ' (year ' + liveWb.year + '), via api.worldbank.org/v2 — free, official, keyless.',
+    });
+  });
+}
+
+// Same pattern again, for the LKPP line — but deliberately lighter-touch:
+// this only ever upgrades freshness/link metadata to a real value, never
+// fabricates a parsed price from the underlying annual XLSX dataset (see
+// functions/api/lkpp-status.js for why).
+function applyLiveLkppOverride(sources, liveLkpp) {
+  if (!liveLkpp || !liveLkpp.metadataModified) return sources;
+  const ageDays = (Date.now() - new Date(liveLkpp.retrievedAt).getTime()) / 864e5;
+  const status = ageDays <= 7 ? 'LIVE' : (ageDays <= 30 ? 'CACHED' : 'STALE');
+  const freshness = ageDays <= 7 ? 'Fresh' : (ageDays <= 30 ? 'Aging' : 'Stale');
+  return sources.map(function (s) {
+    if (s.name !== 'LKPP Open Data — Procurement/Tender Benchmark (SIRUP/E-Katalog)') return s;
+    return Object.assign({}, s, {
+      status: status,
+      publishedDate: (liveLkpp.metadataModified || '').slice(0, 10),
+      retrievedAt: liveLkpp.retrievedAt,
+      freshness: freshness,
+      note: 'Live connection confirmed to data.lkpp.go.id \u2014 dataset "' + liveLkpp.dataset + '" last updated ' + (liveLkpp.metadataModified || '').slice(0, 10) + '. Published as ' + (liveLkpp.format || 'XLSX') + ', not a live feed \u2014 this confirms real freshness, not a live price.',
+    });
+  });
+}
+
+// Same pattern, for the Kurs Pajak (customs/tax settlement rate) line —
+// scraped from Kemenkeu's real, free, official weekly table (see
+// functions/api/kurs-pajak.js).
+function applyLiveKursPajakOverride(sources, liveKursPajak) {
+  if (!liveKursPajak || typeof liveKursPajak.rate !== 'number') return sources;
+  const ageHours = (Date.now() - new Date(liveKursPajak.retrievedAt).getTime()) / 36e5;
+  const status = ageHours <= 24 ? 'LIVE' : (ageHours <= 168 ? 'CACHED' : 'STALE');
+  const freshness = ageHours <= 24 ? 'Fresh' : (ageHours <= 168 ? 'Aging' : 'Stale');
+  return sources.map(function (s) {
+    if (s.name !== 'Kementerian Keuangan — Kurs Pajak (Weekly Customs/Tax Settlement Rate)') return s;
+    return Object.assign({}, s, {
+      status: status,
+      value: liveKursPajak.rate,
+      retrievedAt: liveKursPajak.retrievedAt,
+      trustScore: 98,
+      freshness: freshness,
+      note: 'Live: ' + liveKursPajak.pair + ' = ' + liveKursPajak.rate + ' (effective ' + (liveKursPajak.effectivePeriod || 'this week') + '), via ' + (liveKursPajak.source || 'Kemenkeu Kurs Pajak') + '.',
+    });
+  });
+}
+
+// Same pattern, for the BI-Rate line.
+function applyLiveBiRateOverride(sources, liveBiRate) {
+  if (!liveBiRate || typeof liveBiRate.rate !== 'number') return sources;
+  const ageHours = (Date.now() - new Date(liveBiRate.retrievedAt).getTime()) / 36e5;
+  const status = ageHours <= 24 ? 'LIVE' : (ageHours <= 168 ? 'CACHED' : 'STALE');
+  const freshness = ageHours <= 24 ? 'Fresh' : (ageHours <= 168 ? 'Aging' : 'Stale');
+  return sources.map(function (s) {
+    if (s.name !== 'Bank Indonesia — BI-Rate (Financing/Cost of Money)') return s;
+    return Object.assign({}, s, {
+      status: status,
+      value: liveBiRate.rate,
+      publishedDate: liveBiRate.publishedDateRaw || s.publishedDate,
+      retrievedAt: liveBiRate.retrievedAt,
+      trustScore: 98,
+      freshness: freshness,
+      note: 'Live: BI-Rate = ' + liveBiRate.rate + '% (published ' + liveBiRate.publishedDateRaw + '), via ' + (liveBiRate.source || 'bi.go.id') + '.',
+    });
+  });
+}
+
+// Same pattern, lighter-touch like LKPP: confirms the ESDM electricity
+// regulation is genuinely reachable and reports real freshness, without
+// fabricating a specific tariff figure from what is fundamentally a
+// base document that only changes on a new regulation, not on a schedule.
+function applyLiveEsdmOverride(sources, liveEsdm) {
+  if (!liveEsdm || !liveEsdm.regulation) return sources;
+  return sources.map(function (s) {
+    if (s.name.indexOf('Kementerian ESDM') !== 0) return s;
+    return Object.assign({}, s, {
+      status: 'LIVE',
+      retrievedAt: liveEsdm.retrievedAt,
+      freshness: 'Fresh',
+      note: 'Live connection confirmed to jdih.esdm.go.id \u2014 ' + liveEsdm.regulation + ' is genuinely reachable' + (liveEsdm.lastModifiedHeader ? ' (server last-modified: ' + liveEsdm.lastModifiedHeader + ')' : '') + '. This confirms reachability/freshness of the base regulation and formula, not a live-extracted tariff number \u2014 see the regulation itself for exact Rp/kWh figures per customer class.',
+    });
+  });
+}
+
+function applyLiveEiaOverride(sources, liveEia) {
+  if (!liveEia || typeof liveEia.value !== 'number') return sources;
+  const ageHours = (Date.now() - new Date(liveEia.retrievedAt).getTime()) / 36e5;
+  const status = ageHours <= 24 ? 'LIVE' : (ageHours <= 168 ? 'CACHED' : 'STALE');
+  return sources.map(function (s) {
+    if (s.name.indexOf('EIA —') !== 0) return s;
+    return Object.assign({}, s, {
+      status: status,
+      value: liveEia.value,
+      unit: liveEia.unit || 'USD/barrel',
+      publishedDate: liveEia.period || s.publishedDate,
+      retrievedAt: liveEia.retrievedAt,
+      trustScore: 90,
+      freshness: status === 'LIVE' ? 'Fresh' : (status === 'CACHED' ? 'Aging' : 'Stale'),
+      note: 'Official EIA Brent observation: ' + liveEia.value + ' ' + (liveEia.unit || 'USD/barrel') + '. Cost-driver context only.'
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Step 10 — Negotiation Intelligence
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Calculation Trace (doc §42 Auditability / §44.D) — makes the "Weighted
+// Multi-Source Model" (§25) an explicit, reproducible, line-by-line trace
+// instead of a black-box number. Reads req.hps.weightsUsed directly (the
+// exact renormalized weights triangulate() actually applied) rather than
+// recomputing them, so this can never silently drift from the real answer.
+// ---------------------------------------------------------------------------
+
+const MODEL_LABELS = {
+  A: 'Historical Price Escalation',
+  B: 'Market Benchmark',
+  C: 'Should-Cost Model',
+  D: 'Predictive/Learning Model',
+};
+
+function buildCalculationTrace(req) {
+  const hps = req.hps;
+  if (!hps || !hps.models) return null;
+  const weightsDisplay = hps.weightsUsed || {};
+  const weightsExact = hps.weightsExact || weightsDisplay;
+  const rows = ['A', 'B', 'C', 'D'].map(function (key) {
+    const m = hps.models[key];
+    const displayWeight = weightsDisplay[key] || 0;
+    const exactWeight = weightsExact[key] != null ? weightsExact[key] : displayWeight;
+    const available = !!(m && m.value != null);
+    return {
+      model: key,
+      label: MODEL_LABELS[key],
+      value: available ? m.value : null,
+      weight: displayWeight,
+      // Contribution uses the exact (unrounded) weight so the rows always
+      // sum to the real recommended value — the displayed weight % is
+      // rounded for readability, but the math never is.
+      contribution: available ? m.value * exactWeight : null,
+      status: available ? 'AVAILABLE' : 'UNAVAILABLE',
+      reason: (m && m.reason) || null,
+    };
+  });
+  return {
+    methodology: 'Weighted Multi-Source Model',
+    rows: rows,
+    recommended: hps.recommended,
+    low: hps.low,
+    high: hps.high,
+  };
+}
 
 function generateNegotiation(req, models, triangulated) {
   const supplierQuote = req.input.supplierQuotation ? Number(req.input.supplierQuotation) : null;
@@ -601,10 +1006,22 @@ function generateNegotiation(req, models, triangulated) {
     levers.push(`Supplier quotation is ${gap.toFixed(1)}% above the recommended HPS — request justification or a re-quote.`);
   }
   if (levers.length === 0) levers.push('No single driver moved enough to be a standalone lever — negotiate on bundled volume/term commitments instead.');
+  // Three distinct negotiation reference points (doc §29), not one generic
+  // "target range": Opening Target is the buyer's aggressive-but-realistic
+  // opening ask (anchored to should-cost/HPS-low, whichever is more
+  // conservative); Closing Range is the realistic settlement band between
+  // that opening ask and the recommended HPS; Walk-Away Price is the
+  // ceiling Procurement should accept only with business/criticality
+  // sign-off, not a target to negotiate toward.
+  const openingTarget = Math.min(shouldCost != null ? shouldCost : triangulated.low, triangulated.low);
+  const closingLow = Math.min(shouldCost != null ? shouldCost : triangulated.low, triangulated.recommended);
+  const closingHigh = triangulated.recommended;
+  const walkAwayPrice = triangulated.high;
   return {
     supplierQuote, marketMedian, shouldCost, recommendedHPS: triangulated.recommended,
-    targetLow: Math.min(shouldCost || triangulated.low, triangulated.recommended),
-    targetHigh: triangulated.recommended,
+    openingTarget, closingLow, closingHigh, walkAwayPrice,
+    // Back-compat aliases (kept so nothing else in the codebase silently breaks).
+    targetLow: closingLow, targetHigh: closingHigh,
     levers,
   };
 }
@@ -652,11 +1069,11 @@ var MATURITY_LABELS = [
 // ---------------------------------------------------------------------------
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    CATEGORIES, CLASSIFICATION_TEMPLATES, SCENARIO_DRIVER_MAP, RESEARCH_OBJECTIVES, MATURITY_LABELS,
-    hashStr, mulberry32, percentile, fmtIDR, categoryOf,
-    generateClassification, computeCoverage, generateSources, generateCostDrivers,
+    CATEGORIES, CLASSIFICATION_TEMPLATES, SCENARIO_DRIVER_MAP, RESEARCH_OBJECTIVES, MATURITY_LABELS, CALCULATION_MODES,
+    hashStr, mulberry32, percentile, fmtIDR, categoryOf, calculationModeOf, isDemoMode, isAcceptedEvidenceStatus, parseMarketBenchmarks, assessRuntimeMode,
+    generateClassification, computeCoverage, generateSources, applyLiveFxOverride, generateCostDrivers,
     scenarioAdjustment, estimateBasePrice, shouldCostStack, bufferStockCost, bufferStockBreakdown,
-    adjustedUnitRate, rateAdjustmentBreakdown, toDisplayBasis, getRateModel, purchaseDepreciationRate,
+    adjustedUnitRate, rateAdjustmentBreakdown, toDisplayBasis, getRateModel, purchaseDepreciationRate, applyLiveWbOverride, buildCalculationTrace, applyLiveLkppOverride, applyLiveKursPajakOverride, applyLiveBiRateOverride, applyLiveEsdmOverride, applyLiveEiaOverride,
     modelA, modelB, modelC, modelD, triangulate, computeConfidence,
     generateNegotiation, computeOutcomeLearning, categoryMaturity,
   };
