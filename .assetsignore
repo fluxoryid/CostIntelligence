@@ -6,7 +6,10 @@ dist/**
 functions/**
 package.json
 package-lock.json
+bun.lock
+bun.lockb
 wrangler.jsonc
+worker.js
 .assetsignore
 *.md
 SUPABASE-SETUP.sql
