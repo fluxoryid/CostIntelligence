@@ -1,0 +1,15 @@
+.git/**
+.gitignore
+.wrangler/**
+node_modules/**
+dist/**
+functions/**
+package.json
+package-lock.json
+wrangler.jsonc
+.assetsignore
+*.md
+SUPABASE-SETUP.sql
+bundle_frontend_for_gpt.py
+test-*
+VERSION.json
