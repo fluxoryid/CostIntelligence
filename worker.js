@@ -4,21 +4,21 @@ import { onRequestGet as biRate } from './functions/api/bi-rate.js';
 import { onRequestGet as kursPajak } from './functions/api/kurs-pajak.js';
 import { onRequestGet as wbIndicator } from './functions/api/wb-indicator.js';
 import { onRequestGet as bpsInflation } from './functions/api/bps-inflation.js';
-import { onRequestGet as bpsInflationHistory } from './functions/api/bps-inflation-history-v2.js';
+import { onRequestGet as bpsInflationHistory } from './functions/api/bps-inflation-history-v3.js';
 import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 
-const BUILD_ID = 'historical-intelligence-20260915-v2';
+const BUILD_ID = 'historical-intelligence-20260915-v3';
 
 function versionHandler() {
   return new Response(JSON.stringify({
     service: 'CostIntelligence',
     buildId: BUILD_ID,
     historicalBpsRoute: true,
-    historicalBpsAdapter: 'verified-release-v2',
+    historicalBpsAdapter: 'verified-release-v3',
     historicalBiRoute: true,
-    deployedCodeExpectation: 'worker-with-bps-history-v2'
+    deployedCodeExpectation: 'worker-with-bps-history-v3'
   }), {
     status: 200,
     headers: {
