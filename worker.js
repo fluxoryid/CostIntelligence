@@ -1,4 +1,5 @@
 import { onRequestGet as fxUsdIdr } from './functions/api/fx-usd-idr.js';
+import { onRequestGet as biKurs } from './functions/api/bi-kurs.js';
 import { onRequestGet as biRate } from './functions/api/bi-rate.js';
 import { onRequestGet as kursPajak } from './functions/api/kurs-pajak.js';
 import { onRequestGet as wbIndicator } from './functions/api/wb-indicator.js';
@@ -9,6 +10,7 @@ import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 
 const API_ROUTES = new Map([
   ['/api/fx-usd-idr', fxUsdIdr],
+  ['/api/bi-kurs', biKurs],
   ['/api/bi-rate', biRate],
   ['/api/kurs-pajak', kursPajak],
   ['/api/wb-indicator', wbIndicator],
