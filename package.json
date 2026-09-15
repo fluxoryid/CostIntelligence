@@ -4,8 +4,7 @@
   "private": true,
   "description": "HPS Intelligence production deployment for Cloudflare Workers",
   "scripts": {
-    "build": "wrangler pages functions build ./functions --outdir=./dist/worker --build-output-directory=.",
-    "deploy": "npm run build && wrangler deploy --config wrangler.jsonc"
+    "deploy": "wrangler deploy --config wrangler.jsonc"
   },
   "devDependencies": {
     "wrangler": "4.131.2"
