@@ -5,10 +5,10 @@ const path = require('node:path');
 
 function read(name){ return fs.readFileSync(path.join(__dirname,'..',name),'utf8'); }
 
-test('browser config never contains service-role credential names', () => {
+test('browser config contains only a publishable Supabase credential', () => {
   const cfg = read('config.js');
-  assert.ok(!/service[_-]?role/i.test(cfg.replace(/Service-role credentials must never be placed here\./i,'')));
-  assert.match(cfg,/SUPABASE_PUBLISHABLE_KEY:\s*''/);
+  assert.ok(!/SUPABASE_(SERVICE[_-]?ROLE|SECRET|ADMIN|PRIVATE)[A-Z0-9_]*/i.test(cfg));
+  assert.match(cfg,/SUPABASE_PUBLISHABLE_KEY:\s*'(?:|sb_publishable_[A-Za-z0-9_-]+)'/);
   assert.match(cfg,/ALLOW_SELF_SIGNUP:\s*false/);
 });
 
