@@ -1,9 +1,11 @@
 {
   "name": "HPS Intelligence",
-  "release": "Production Fresh 1.1 — Aqua/Royal Theme",
-  "date": "2026-09-14",
+  "release": "Production 2.0 RC",
+  "date": "2026-09-16",
+  "workerBuild": "production-complete-20260916-v14",
   "defaultCalculationMode": "HYBRID_STRICT",
   "syntheticProductionEvidence": false,
-  "theme": "Aqua / Royal / Poppins",
-  "themeReference": "User-provided Yokke website screenshot"
+  "multiUserArchitecture": "Cloudflare Worker + Supabase Auth/PostgreSQL/Storage",
+  "productionBackendStatus": "awaiting dedicated Supabase project provisioning",
+  "theme": "Aqua / Royal / Poppins"
 }
