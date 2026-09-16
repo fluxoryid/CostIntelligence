@@ -4,7 +4,7 @@
  */
 window.HPS_CONFIG = {
   APP_NAME: 'HPS Intelligence',
-  APP_VERSION: 'Production Fresh 1.2',
+  APP_VERSION: 'Production Fresh 1.3',
   TENANT_ID: 'default-org',
   CALCULATION_MODE: 'HYBRID_STRICT',
   SUPABASE_URL: '',
@@ -12,14 +12,20 @@ window.HPS_CONFIG = {
 };
 
 /* UX extension loader.
- * Loaded separately so procurement taxonomy/flow guidance can evolve without
- * changing the calculation engine. The feature validates Jenis Pengadaan ->
- * Kategori -> Subkategori dependencies after app.js restores persisted form
- * data, while keeping numerical HPS governance in the calculation engine.
+ * Extensions are loaded sequentially because the category-cost form depends on
+ * the procurement taxonomy/subcategory extension having finished first.
+ * Numerical HPS governance remains in the calculation engine; these extensions
+ * only constrain taxonomy and collect explicit user-provided cost evidence.
  */
 (function () {
-  var s = document.createElement('script');
-  s.src = 'procurement-ux.js';
-  s.async = true;
-  document.head.appendChild(s);
+  var files = ['procurement-ux.js', 'category-cost-ux.js'];
+  function loadNext(index) {
+    if (index >= files.length) return;
+    var s = document.createElement('script');
+    s.src = files[index];
+    s.async = false;
+    s.onload = function () { loadNext(index + 1); };
+    document.head.appendChild(s);
+  }
+  loadNext(0);
 })();
