@@ -1,47 +1,36 @@
 (function () {
   'use strict';
-  var client = null;
-  function cfg(){ return window.HPS_CONFIG || {}; }
-  function getClient() {
-    if (client) return client;
-    var c = cfg();
-    if (!c.SUPABASE_URL || !c.SUPABASE_PUBLISHABLE_KEY || !window.supabase || !window.supabase.createClient) return null;
-    client = window.supabase.createClient(c.SUPABASE_URL, c.SUPABASE_PUBLISHABLE_KEY);
+  var client=null;
+  var listeners=[];
+  function cfg(){return window.HPS_CONFIG||{};}
+  function getClient(){
+    if(client)return client;var c=cfg();
+    if(!c.SUPABASE_URL||!c.SUPABASE_PUBLISHABLE_KEY||!window.supabase||!window.supabase.createClient)return null;
+    client=window.supabase.createClient(c.SUPABASE_URL,c.SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    client.auth.onAuthStateChange(function(){notify();});
     return client;
   }
-  function baseUser(u, role) {
-    if (!u) return null;
-    return { id:u.id, email:u.email, name:(u.user_metadata && u.user_metadata.display_name) || u.email, role:role || 'No Tenant Access' };
-  }
-  function loadUser(u) {
-    var c=getClient(); if(!c || !u) return Promise.resolve(baseUser(u));
-    return c.from('hps_tenant_members').select('role').eq('tenant_id',cfg().TENANT_ID || 'default-org').eq('user_id',u.id).maybeSingle().then(function(r){
-      if(r.error) return baseUser(u,'No Tenant Access');
-      return baseUser(u,r.data && r.data.role || 'No Tenant Access');
-    }).catch(function(){ return baseUser(u,'No Tenant Access'); });
+  function normalizeRole(role){var m={Requester:'Procurement User',Procurement:'Analyst/Senior',Approver:'Manager',Admin:'Procurement Head/Admin',Auditor:'Auditor'};return m[role]||role||'No Tenant Access';}
+  function baseUser(u,role,active){if(!u)return null;return{id:u.id,email:u.email,name:(u.user_metadata&&u.user_metadata.display_name)||u.email,role:normalizeRole(role),active:active!==false};}
+  function loadUser(u){
+    var c=getClient();if(!c||!u)return Promise.resolve(baseUser(u));
+    return c.from('hps_tenant_members').select('role,active').eq('tenant_id',cfg().TENANT_ID||'default-org').eq('user_id',u.id).maybeSingle().then(function(r){
+      if(r.error||!r.data||r.data.active===false)return baseUser(u,'No Tenant Access',false);
+      return baseUser(u,r.data.role,r.data.active);
+    }).catch(function(){return baseUser(u,'No Tenant Access',false);});
   }
   function signIn(email,password){
-    var c=getClient(); if(!c) return Promise.resolve({error:'Supabase is not configured; application is running local-only.'});
-    return c.auth.signInWithPassword({email:email,password:password}).then(function(r){
-      if(r.error) return {error:r.error.message};
-      return loadUser(r.data.user).then(function(user){return {user:user};});
-    });
+    var c=getClient();if(!c)return Promise.resolve({error:'Supabase is not configured; application is running local-only.'});
+    return c.auth.signInWithPassword({email:email,password:password}).then(function(r){if(r.error)return{error:r.error.message};return loadUser(r.data.user).then(function(user){if(user.role==='No Tenant Access')return{error:'Authenticated, but this account has no active tenant membership.'};return{user:user};});});
   }
   function signUp(email,password){
-    var c=getClient(); if(!c) return Promise.resolve({error:'Supabase is not configured; application is running local-only.'});
-    return c.auth.signUp({email:email,password:password}).then(function(r){
-      if(r.error) return {error:r.error.message};
-      if(!r.data.user) return {error:'Check your email to confirm the account, then sign in.'};
-      return loadUser(r.data.user).then(function(user){return {user:user};});
-    });
+    if(!cfg().ALLOW_SELF_SIGNUP)return Promise.resolve({error:'Self-sign-up is disabled. Ask the Procurement Head/Admin to invite the user.'});
+    var c=getClient();if(!c)return Promise.resolve({error:'Supabase is not configured; application is running local-only.'});
+    return c.auth.signUp({email:email,password:password}).then(function(r){if(r.error)return{error:r.error.message};if(!r.data.user)return{error:'Check your email to confirm the account, then sign in.'};return loadUser(r.data.user).then(function(user){return{user:user};});});
   }
-  function signOut(){var c=getClient(); return c?c.auth.signOut():Promise.resolve();}
-  function getSession(){
-    var c=getClient(); if(!c)return Promise.resolve(null);
-    return c.auth.getSession().then(function(r){
-      var u=r.data && r.data.session && r.data.session.user;
-      return u ? loadUser(u) : null;
-    }).catch(function(){return null;});
-  }
-  window.HPSAuth={signIn:signIn,signUp:signUp,signOut:signOut,getSession:getSession,getClient:getClient,isConfigured:function(){return !!getClient();}};
+  function signOut(){var c=getClient();return c?c.auth.signOut():Promise.resolve();}
+  function getSession(){var c=getClient();if(!c)return Promise.resolve(null);return c.auth.getSession().then(function(r){var u=r.data&&r.data.session&&r.data.session.user;return u?loadUser(u):null;}).catch(function(){return null;});}
+  function notify(){getSession().then(function(u){listeners.slice().forEach(function(fn){try{fn(u);}catch(e){}});});}
+  function onChange(fn){if(typeof fn==='function')listeners.push(fn);return function(){listeners=listeners.filter(function(x){return x!==fn;});};}
+  window.HPSAuth={signIn:signIn,signUp:signUp,signOut:signOut,getSession:getSession,getClient:getClient,onChange:onChange,normalizeRole:normalizeRole,isConfigured:function(){return !!getClient();}};
 })();
