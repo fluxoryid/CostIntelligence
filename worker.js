@@ -9,7 +9,7 @@ import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 
-const BUILD_ID = 'category-cost-forms-20260916-v7';
+const BUILD_ID = 'evidence-component-governance-20260916-v8';
 
 function versionHandler() {
   return new Response(JSON.stringify({
@@ -23,8 +23,11 @@ function versionHandler() {
     categoryIntelligenceProfile: true,
     categoryDependentCostForms: true,
     categoryEvidenceRequirements: true,
+    evidenceToComponentMapping: true,
+    componentConfidenceScoring: true,
+    componentEvidenceCoverageGate: true,
     guidedProcurementFlow: true,
-    deployedCodeExpectation: 'worker-with-category-cost-forms-v7'
+    deployedCodeExpectation: 'worker-with-component-evidence-governance-v8'
   }), {
     status: 200,
     headers: {
