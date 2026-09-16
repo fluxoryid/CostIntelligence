@@ -20,26 +20,40 @@
     return ['DRAFT','SUBMITTED','UNDER_REVIEW','REWORK','APPROVED','REJECTED','LOCKED','ARCHIVED'].indexOf(v)!==-1?v:'DRAFT';
   }
 
+  function requestToSnapshot(req){
+    req=req||{}; var input=req.input||{};
+    var cov=window.HPSEvidenceComponentUX&&window.HPSEvidenceComponentUX.getCoverage?window.HPSEvidenceComponentUX.getCoverage():null;
+    var mapped=window.HPSEvidenceComponentUX&&window.HPSEvidenceComponentUX.exportMappings?window.HPSEvidenceComponentUX.exportMappings():null;
+    return {
+      requestId:req.id||getCurrentRequestId(),
+      capturedAt:now(),
+      category:input.category||null,
+      subcategory:input.subCategory||null,
+      productName:input.productName||null,
+      runtimeMode:req.runtimeMode||null,
+      evidenceCoverage:cov,
+      componentEvidence:mapped,
+      rawRequest:req
+    };
+  }
+
   function pushRequest(req){
-    var c=client(); if(!c){status='offline'; if(req&&req.id)rememberRequest(req.id); return Promise.resolve({localOnly:true});}
     if(req&&req.id)rememberRequest(req.id);
-    return currentUserId(c).then(function(uid){ if(!uid) throw new Error('No authenticated session');
-      return c.from('hps_requests').upsert({
-        id:req.id,tenant_id:tenant(),owner_user_id:uid,status:normalizeStage((req.approval&&req.approval.stage)||req.status),
-        category:req.input&&req.input.category,subcategory:req.input&&req.input.subCategory||null,
-        product_name:req.input&&req.input.productName,data:req,updated_at:now()
-      },{onConflict:'id'});
-    }).then(function(r){if(r.error)throw r.error;status='online';return {ok:true,id:req.id};}).catch(errResult);
+    return saveWorkflowDraft(requestToSnapshot(req));
   }
 
   function pushAuditLog(entry){
     var c=client(); if(!c)return Promise.resolve({localOnly:true});
-    return currentUserId(c).then(function(uid){if(!uid)throw new Error('No authenticated session');return c.from('hps_audit_log').insert({tenant_id:tenant(),user_id:uid,request_id:entry.requestId||getCurrentRequestId()||null,action:entry.action,detail:entry.detail||null,ts:entry.ts||now()});})
-      .then(function(r){if(r&&r.error)throw r.error;return{ok:true};}).catch(errResult);
+    return currentUserId(c).then(function(uid){
+      if(!uid)throw new Error('No authenticated session');
+      var detail=entry.detail;
+      if(detail!=null && (typeof detail!=='object' || Array.isArray(detail))) detail={value:detail};
+      return c.from('hps_audit_log').insert({tenant_id:tenant(),user_id:uid,request_id:entry.requestId||getCurrentRequestId()||null,action:entry.action,detail:detail||null,ts:entry.ts||now()});
+    }).then(function(r){if(r&&r.error)throw r.error;return{ok:true};}).catch(errResult);
   }
 
   function saveWorkflowDraft(snapshot){
-    var c=client(); if(!c)return Promise.resolve({localOnly:true});
+    var c=client(); if(!c){status='offline';return Promise.resolve({localOnly:true});}
     var id=snapshot.requestId||getCurrentRequestId(); rememberRequest(id);
     return Promise.all([currentUserId(c),hashText(JSON.stringify(snapshot))]).then(function(v){var uid=v[0],hash=v[1];if(!uid)throw new Error('No authenticated session');
       return c.rpc('hps_save_draft',{p_tenant_id:tenant(),p_request_id:id,p_snapshot:snapshot,p_category:snapshot.category||null,p_subcategory:snapshot.subcategory||null,p_product_name:snapshot.productName||null,p_content_hash:hash});
@@ -112,7 +126,7 @@
 
   function pullLearning(){
     var c=client(); if(!c)return Promise.resolve([]);
-    return c.from('hps_learning_outcomes').select('*').eq('tenant_id',tenant()).eq('approved_for_learning',true).then(function(r){if(r.error)throw r.error;status='online';return (r.data||[]).map(function(x){return x.data||x;});}).catch(function(){status='offline';return [];});
+    return c.from('hps_learning_outcomes').select('*').eq('tenant_id',tenant()).eq('approved_for_learning',true).then(function(r){if(r.error)throw r.error;status='online';return (r.data||[]).map(function(x){return Object.assign({},x.data||x,{approvedForLearning:true,serverApproved:true});});}).catch(function(){status='offline';return [];});
   }
 
   function pushLearningOutcome(event){
