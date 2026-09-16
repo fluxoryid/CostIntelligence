@@ -27,7 +27,7 @@ test('Supabase schema enables RLS and immutable versions', () => {
   }
   assert.ok(sql.includes('hps_request_versions_immutable'));
   assert.ok(sql.includes('hps_transition_request'));
-  assert.ok(sql.includes("values('hps-evidence','hps-evidence',false"));
+  assert.match(sql,/values\s*\(\s*'hps-evidence'\s*,\s*'hps-evidence'\s*,\s*false/i);
 });
 
 test('production extensions are all loaded', () => {
