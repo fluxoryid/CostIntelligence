@@ -27,30 +27,39 @@
 - [x] Existing users, requests and audit history migrated into canonical HPS tables.
 - [x] Obsolete `requests`, `audit_log`, `model_governance` and `hps_users` tables removed after migration verification.
 - [x] Tenant `t1` bootstrapped and existing users mapped to production roles.
+- [x] Six active memberships confirmed by owner as the intended roster: owner + five team members.
 - [x] RLS enabled on every public HPS table.
 - [x] Core request/version writes restricted to controlled RPCs.
 - [x] Anonymous table privileges revoked; authenticated table privileges reduced to required operations only.
 - [x] Private `hps-evidence` Storage bucket created with 20 MB limit and MIME allow-list.
 - [x] Storage tenant-path RLS policies created.
 - [x] Security Advisor reviewed; anonymous SECURITY DEFINER findings eliminated.
-- [x] Performance Advisor unindexed-FK and auth-initplan findings remediated.
+- [x] The three remaining authenticated SECURITY DEFINER notices are intentional API RPCs (`hps_save_draft`, `hps_transition_request`, `hps_approve_learning_outcome`) and each performs authenticated tenant/role validation internally.
+- [x] Password policy hardened to minimum 12 characters with lowercase, uppercase, digits and symbols; current password is required when changing a password.
+- [x] Leaked-password protection reviewed. It is unavailable on the current Supabase Free plan and is recorded as an accepted residual control until a Pro-plan upgrade.
+- [x] Performance Advisor unindexed-FK and auth-initplan findings remediated. Remaining notices are informational unused-index notices expected on the currently small dataset; indexes are retained for production query paths.
 - [x] Database transactional UAT: Analyst maker → Manager review/approve → Head lock passed.
 - [x] Database transactional UAT: maker self-review rejected.
 - [x] Database transactional UAT: `BLOCKED` evidence request submission rejected.
 - [x] Database transactional UAT: Manager learning approval allowed and Analyst learning approval denied.
+- [x] Cross-tenant isolation and anonymous-access denial verified at the database/RLS layer.
 - [x] Transactional UAT rolled back with no test records left in production data.
+
+## Free-plan operational residuals
+
+- [x] Supabase Free-plan backup limitation reviewed against current Supabase documentation.
+- [ ] Establish a recurring off-site logical database export using `supabase db dump` / `pg_dump` before full production reliance.
+- [ ] Establish a separate backup/export procedure for evidence files in Supabase Storage; database backups do not restore Storage objects.
+- [ ] Upgrade to Pro if automatic daily backups, downloadable backup history, non-pausing availability, leaked-password protection or PITR are required by policy.
 
 ## Live items still requiring runtime/user validation
 
-- [ ] Reconcile intended five-user team roster against six active tenant memberships before disabling/deleting any account.
-- [ ] Enable Supabase Auth leaked-password protection.
 - [ ] Browser sign-in tested for each intended role.
-- [ ] Cross-role visibility/action isolation tested through the browser/PostgREST session.
-- [ ] Auditor write attempts tested if an Auditor account is part of the final roster.
+- [ ] Cross-role visibility/action isolation tested through real browser/PostgREST sessions.
 - [ ] Private evidence upload/download tested with authorized user and denied for unauthorized context.
 - [ ] Duplicate evidence upload rejected by SHA-256 control.
 - [ ] Shared request/version state confirmed across two or more browsers/users.
-- [ ] Five simultaneous users can save/review without browser-local collision.
+- [ ] Five simultaneous team users can save/review without browser-local collision.
 
 ## Release validation
 
@@ -58,5 +67,5 @@
 - [ ] Deployed `config.js` points to `https://bobrilytsufxtqqqgaym.supabase.co` and uses a publishable key only.
 - [ ] In-app Production Readiness Monitor required checks pass.
 - [ ] UAT-01 through UAT-24 completed and recorded.
-- [ ] Backup/restore availability confirmed for the current Supabase project plan.
+- [ ] Owner accepts the Free-plan backup/availability residuals or upgrades the project before final production reliance.
 - [ ] Business owner/security owner signs off Production 2.0 release.
