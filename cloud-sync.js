@@ -15,13 +15,17 @@
     if(!window.crypto||!window.crypto.subtle)return Promise.resolve(null);
     return window.crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(text||''))).then(function(buf){return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');});
   }
+  function normalizeStage(v){
+    v=String(v||'DRAFT').toUpperCase().replace(/[ -]+/g,'_');
+    return ['DRAFT','SUBMITTED','UNDER_REVIEW','REWORK','APPROVED','REJECTED','LOCKED','ARCHIVED'].indexOf(v)!==-1?v:'DRAFT';
+  }
 
   function pushRequest(req){
     var c=client(); if(!c){status='offline'; if(req&&req.id)rememberRequest(req.id); return Promise.resolve({localOnly:true});}
     if(req&&req.id)rememberRequest(req.id);
     return currentUserId(c).then(function(uid){ if(!uid) throw new Error('No authenticated session');
       return c.from('hps_requests').upsert({
-        id:req.id,tenant_id:tenant(),owner_user_id:uid,status:(req.approval&&req.approval.stage)||req.status||'DRAFT',
+        id:req.id,tenant_id:tenant(),owner_user_id:uid,status:normalizeStage((req.approval&&req.approval.stage)||req.status),
         category:req.input&&req.input.category,subcategory:req.input&&req.input.subCategory||null,
         product_name:req.input&&req.input.productName,data:req,updated_at:now()
       },{onConflict:'id'});
@@ -38,7 +42,7 @@
     var c=client(); if(!c)return Promise.resolve({localOnly:true});
     var id=snapshot.requestId||getCurrentRequestId(); rememberRequest(id);
     return Promise.all([currentUserId(c),hashText(JSON.stringify(snapshot))]).then(function(v){var uid=v[0],hash=v[1];if(!uid)throw new Error('No authenticated session');
-      return c.rpc('hps_save_draft',{p_request_id:id,p_snapshot:snapshot,p_category:snapshot.category||null,p_subcategory:snapshot.subcategory||null,p_product_name:snapshot.productName||null,p_content_hash:hash});
+      return c.rpc('hps_save_draft',{p_tenant_id:tenant(),p_request_id:id,p_snapshot:snapshot,p_category:snapshot.category||null,p_subcategory:snapshot.subcategory||null,p_product_name:snapshot.productName||null,p_content_hash:hash});
     }).then(function(r){if(r.error)throw r.error;status='online';return r.data||{ok:true};}).catch(errResult);
   }
 
@@ -46,7 +50,7 @@
     var c=client(); if(!c)return Promise.resolve({error:'Supabase is not configured'});
     var id=snapshot.requestId||getCurrentRequestId(); rememberRequest(id);
     return hashText(JSON.stringify(snapshot)).then(function(hash){
-      return c.rpc('hps_transition_request',{p_request_id:id,p_action:action,p_comment:comment||null,p_snapshot:snapshot,p_content_hash:hash});
+      return c.rpc('hps_transition_request',{p_tenant_id:tenant(),p_request_id:id,p_action:action,p_comment:comment||null,p_snapshot:snapshot,p_content_hash:hash});
     }).then(function(r){if(r.error)throw r.error;status='online';return r.data||{ok:true};}).catch(errResult);
   }
 
@@ -118,6 +122,11 @@
     }).then(function(r){if(r.error)throw r.error;status='online';return {ok:true,pendingApproval:true};}).catch(errResult);
   }
 
+  function approveLearningOutcome(id,approve){
+    var c=client(); if(!c)return Promise.resolve({error:'Supabase is not configured'});
+    return c.rpc('hps_approve_learning_outcome',{p_tenant_id:tenant(),p_outcome_id:id,p_approve:!!approve}).then(function(r){if(r.error)throw r.error;return r.data||{ok:true};}).catch(errResult);
+  }
+
   function saveNegotiationOutcome(event){
     var c=client(); if(!c)return Promise.resolve({localOnly:true});
     return currentUserId(c).then(function(uid){if(!uid)throw new Error('No authenticated session');return c.from('hps_negotiation_outcomes').insert({tenant_id:tenant(),request_id:event.requestId||getCurrentRequestId(),request_version:event.requestVersion||null,user_id:uid,supplier_name:event.supplierName||null,initial_offer:event.initialOffer||null,final_offer:event.finalOffer||null,hps_value:event.hpsValue||null,target_value:event.targetValue||null,data:event});})
@@ -135,7 +144,7 @@
     pushRequest:pushRequest,pushAuditLog:pushAuditLog,
     saveWorkflowDraft:saveWorkflowDraft,transitionRequest:transitionRequest,getRequest:getRequest,listRequests:listRequests,listReviews:listReviews,
     findDocumentByHash:findDocumentByHash,nextDocumentVersion:nextDocumentVersion,uploadEvidenceDocument:uploadEvidenceDocument,listDocuments:listDocuments,upsertComponentEvidence:upsertComponentEvidence,
-    pullLearning:pullLearning,pushLearningOutcome:pushLearningOutcome,saveNegotiationOutcome:saveNegotiationOutcome,
+    pullLearning:pullLearning,pushLearningOutcome:pushLearningOutcome,approveLearningOutcome:approveLearningOutcome,saveNegotiationOutcome:saveNegotiationOutcome,
     getCurrentRequestId:getCurrentRequestId,rememberRequest:rememberRequest,health:health,getStatus:function(){return status;}
   };
 })();
