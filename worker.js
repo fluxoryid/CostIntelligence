@@ -9,7 +9,7 @@ import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 
-const BUILD_ID = 'procurement-subcategory-dependency-20260916-v6';
+const BUILD_ID = 'category-cost-forms-20260916-v7';
 
 function versionHandler() {
   return new Response(JSON.stringify({
@@ -21,8 +21,10 @@ function versionHandler() {
     procurementCategoryDependency: true,
     procurementSubcategoryDependency: true,
     categoryIntelligenceProfile: true,
+    categoryDependentCostForms: true,
+    categoryEvidenceRequirements: true,
     guidedProcurementFlow: true,
-    deployedCodeExpectation: 'worker-with-procurement-ux-v6'
+    deployedCodeExpectation: 'worker-with-category-cost-forms-v7'
   }), {
     status: 200,
     headers: {
