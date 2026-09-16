@@ -9,12 +9,29 @@ import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 
-const BUILD_ID = 'evidence-component-governance-20260916-v8';
+const BUILD_ID = 'production-complete-20260916-v14';
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...corsHeaders() },
+  });
+}
 
 function versionHandler() {
-  return new Response(JSON.stringify({
+  return json({
     service: 'CostIntelligence',
     buildId: BUILD_ID,
+    releaseChannel: 'production-rc',
+    calculationMode: 'HYBRID_STRICT',
     historicalBpsRoute: true,
     historicalBpsAdapter: 'verified-release-v3-no-store',
     historicalBiRoute: true,
@@ -26,20 +43,37 @@ function versionHandler() {
     evidenceToComponentMapping: true,
     componentConfidenceScoring: true,
     componentEvidenceCoverageGate: true,
+    approvalWorkflowRbac: true,
+    immutableVersionBackendSchema: true,
+    multiTenantSupabaseSchema: true,
+    documentEvidenceHub: true,
+    sha256DuplicateControl: true,
+    documentTextExtraction: true,
+    multiCurrencyBiNormalization: true,
+    landedCostScenario: true,
+    governedLearning: true,
+    negotiationIntelligence: true,
+    productionHealthMonitor: true,
     guidedProcurementFlow: true,
-    deployedCodeExpectation: 'worker-with-component-evidence-governance-v8'
-  }), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-      ...corsHeaders(),
-    },
+    deployedCodeExpectation: 'worker-production-complete-v14'
+  });
+}
+
+function healthHandler() {
+  return json({
+    status: 'healthy',
+    service: 'CostIntelligence',
+    buildId: BUILD_ID,
+    runtime: 'Cloudflare Workers + Static Assets',
+    stateless: true,
+    timestamp: new Date().toISOString(),
+    note: 'Application runtime is healthy. Supabase tenant/auth readiness is validated client-side after authentication.'
   });
 }
 
 const API_ROUTES = new Map([
   ['/api/version', versionHandler],
+  ['/api/health', healthHandler],
   ['/api/fx-usd-idr', fxUsdIdr],
   ['/api/bi-kurs', biKurs],
   ['/api/bi-rate', biRate],
@@ -52,32 +86,16 @@ const API_ROUTES = new Map([
   ['/api/eia-brent', eiaBrent],
 ]);
 
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
-}
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const handler = API_ROUTES.get(url.pathname);
 
     if (handler) {
-      if (request.method === 'OPTIONS') {
-        return new Response(null, { status: 204, headers: corsHeaders() });
-      }
-      if (request.method !== 'GET' && request.method !== 'HEAD') {
-        return new Response(JSON.stringify({ error: 'method_not_allowed' }), {
-          status: 405,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-        });
-      }
-
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() });
+      if (request.method !== 'GET' && request.method !== 'HEAD') return json({ error: 'method_not_allowed' }, 405);
       try {
-        if (url.pathname === '/api/version') return handler();
+        if (url.pathname === '/api/version' || url.pathname === '/api/health') return handler();
         return await handler({
           request,
           env,
@@ -88,27 +106,11 @@ export default {
           next: () => env.ASSETS.fetch(request),
         });
       } catch (error) {
-        return new Response(JSON.stringify({
-          error: 'api_handler_failed',
-          message: error instanceof Error ? error.message : String(error),
-        }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-        });
+        return json({ error: 'api_handler_failed', message: error instanceof Error ? error.message : String(error) }, 500);
       }
     }
 
-    if (url.pathname.startsWith('/api/')) {
-      return new Response(JSON.stringify({
-        error: 'api_route_not_found',
-        path: url.pathname,
-        buildId: BUILD_ID
-      }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...corsHeaders() },
-      });
-    }
-
+    if (url.pathname.startsWith('/api/')) return json({ error: 'api_route_not_found', path: url.pathname, buildId: BUILD_ID }, 404);
     return env.ASSETS.fetch(request);
   },
 };
