@@ -5,12 +5,12 @@
 window.HPS_CONFIG = {
   APP_NAME: 'HPS Intelligence',
   APP_VERSION: 'Production 2.0 RC',
-  TENANT_ID: 'default-org',
+  TENANT_ID: 't1',
   CALCULATION_MODE: 'HYBRID_STRICT',
   ALLOW_SELF_SIGNUP: false,
   EXPECTED_WORKER_BUILD: 'production-complete-20260916-v14',
-  SUPABASE_URL: '',
-  SUPABASE_PUBLISHABLE_KEY: ''
+  SUPABASE_URL: 'https://bobrilytsufxtqqqgaym.supabase.co',
+  SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_K8O1eFVrt2nvl2N3l_q9ow_cRQXFGM2'
 };
 
 /* Production extensions are loaded sequentially. They wait for window load
