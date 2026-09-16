@@ -6,6 +6,8 @@
   "defaultCalculationMode": "HYBRID_STRICT",
   "syntheticProductionEvidence": false,
   "multiUserArchitecture": "Cloudflare Worker + Supabase Auth/PostgreSQL/Storage",
-  "productionBackendStatus": "awaiting dedicated Supabase project provisioning",
+  "productionBackendStatus": "live Supabase backend provisioned; final browser/runtime UAT pending",
+  "supabaseProjectRef": "bobrilytsufxtqqqgaym",
+  "tenantId": "t1",
   "theme": "Aqua / Royal / Poppins"
 }
