@@ -4,7 +4,7 @@
  */
 window.HPS_CONFIG = {
   APP_NAME: 'HPS Intelligence',
-  APP_VERSION: 'Production Fresh 1.3',
+  APP_VERSION: 'Production Fresh 1.4',
   TENANT_ID: 'default-org',
   CALCULATION_MODE: 'HYBRID_STRICT',
   SUPABASE_URL: '',
@@ -12,13 +12,14 @@ window.HPS_CONFIG = {
 };
 
 /* UX extension loader.
- * Extensions are loaded sequentially because the category-cost form depends on
- * the procurement taxonomy/subcategory extension having finished first.
- * Numerical HPS governance remains in the calculation engine; these extensions
- * only constrain taxonomy and collect explicit user-provided cost evidence.
+ * Extensions are loaded sequentially because category-cost forms depend on
+ * procurement taxonomy/subcategory, and component evidence mapping depends on
+ * the rendered category-cost structure. Numerical HPS governance remains in
+ * the deterministic engine; these extensions constrain taxonomy and collect
+ * explicit user/reviewer evidence.
  */
 (function () {
-  var files = ['procurement-ux.js', 'category-cost-ux.js'];
+  var files = ['procurement-ux.js', 'category-cost-ux.js', 'evidence-component-ux.js'];
   function loadNext(index) {
     if (index >= files.length) return;
     var s = document.createElement('script');
