@@ -17,6 +17,36 @@
   function subcategory(){return byId('subCategory')?byId('subCategory').value:null;}
   function requestId(){return window.HPSCloud&&window.HPSCloud.getCurrentRequestId?window.HPSCloud.getCurrentRequestId():null;}
 
+  function installGovernedLearningGuard(){
+    if(window.CalcCore&&window.CalcCore.modelD&&!window.CalcCore.__serverApprovedLearningOnly){
+      var originalModelD=window.CalcCore.modelD;
+      window.CalcCore.modelD=function(req,events){
+        var governed=(events||[]).filter(function(e){return !!(e&&e.serverApproved===true);});
+        return originalModelD(req,governed);
+      };
+      window.CalcCore.__serverApprovedLearningOnly=true;
+    }
+    if(window.HPSCloud&&window.HPSCloud.pullLearning&&!window.HPSCloud.__serverApprovedLearningDecorated){
+      var originalPull=window.HPSCloud.pullLearning;
+      window.HPSCloud.pullLearning=function(){
+        return originalPull.apply(window.HPSCloud,arguments).then(function(rows){
+          return (rows||[]).map(function(x){return Object.assign({},x,{approvedForLearning:true,serverApproved:true});});
+        });
+      };
+      window.HPSCloud.__serverApprovedLearningDecorated=true;
+    }
+    if(!(window.CalcCore&&window.CalcCore.__serverApprovedLearningOnly&&window.HPSCloud&&window.HPSCloud.__serverApprovedLearningDecorated))setTimeout(installGovernedLearningGuard,150);
+  }
+
+  function disableLegacyLearningCapture(){
+    var legacy=byId('btnRecordOutcome');
+    if(!legacy)return;
+    legacy.disabled=true;
+    legacy.title='Use the Governed Learning & Negotiation Intelligence panel. Outcomes must be approved by Manager/Head before Model D can consume them.';
+    legacy.textContent='Use Governed Learning Panel';
+    legacy.classList.add('opacity-50','cursor-not-allowed');
+  }
+
   function outcomeDiscount(x){
     if(!x)return null;
     var d=Number(x.negotiationDiscountPct!=null?x.negotiationDiscountPct:x.achievedDiscountPct!=null?x.achievedDiscountPct:x.discountPct);
@@ -76,8 +106,9 @@
     return Promise.all([p1,p2]).then(function(v){approved=v[0]||[];pending=v[1]||[];render();return{approved:approved,pending:pending};});
   }
   function bind(){['v1Price','v2Price','engineCategory','subCategory'].forEach(function(id){var e=byId(id);if(e)e.addEventListener('change',render);});}
-  function init(){if(initialized)return;if(!byId('hpsGrossDisplay')){setTimeout(init,150);return;}initialized=true;bind();refresh();}
+  function init(){if(initialized)return;if(!byId('hpsGrossDisplay')){setTimeout(init,150);return;}installGovernedLearningGuard();disableLegacyLearningCapture();initialized=true;bind();refresh();}
 
+  installGovernedLearningGuard();
   window.HPSLearningNegotiation={init:init,refresh:refresh,getStats:stats,getTarget:target,getApproved:function(){return approved.slice();}};
   if(typeof module!=='undefined'&&module.exports)module.exports={percentile:percentile,outcomeDiscount:outcomeDiscount};
   if(document.readyState==='complete')setTimeout(init,0);else window.addEventListener('load',function(){setTimeout(init,0);});
