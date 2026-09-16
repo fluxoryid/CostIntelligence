@@ -1,58 +1,114 @@
-# Deployment — GitHub → Cloudflare Pages → Supabase
+# Deployment — GitHub → Cloudflare Worker + Static Assets → Supabase
+
+## Runtime architecture
+
+Production topology:
+
+`Browser → Cloudflare Worker + Static Assets → Supabase Auth/PostgreSQL/Storage`
+
+No Nginx, Apache, IIS or VPS is required. Cloudflare is the stateless web/API layer; Supabase is the shared multi-user system of record.
+
+Current Cloudflare Worker configuration is defined in `wrangler.jsonc`:
+
+- Worker name: `costintelligence-pages` (legacy project name retained)
+- Entry point: `worker.js`
+- Static assets directory: repository root (`.`)
+- API routes execute Worker-first for `/api/*`
+- SPA fallback enabled
+- Worker observability enabled
+- Expected production build: `production-complete-20260916-v14`
+
+Known production Worker URL:
+
+`https://costintelligence-pages.procurement-e61.workers.dev`
 
 ## 1. GitHub
 
-Create a private repository and upload the **contents of this folder at repository root**. `index.html` and `functions/` must be siblings.
+Repository: `fluxoryid/CostIntelligence`
 
-## 2. Cloudflare Pages
+`main` is the release branch. GitHub CI must pass before production deployment. The repository is public, therefore:
 
-Use Git integration (not dashboard drag-and-drop) because this package uses Pages Functions.
+- never commit Supabase service-role keys;
+- never commit Cloudflare API tokens;
+- only Supabase publishable browser credentials may appear in `config.js`;
+- provider secrets such as `EIA_API_KEY` must be configured as Cloudflare Worker secrets/environment variables.
 
-Recommended settings:
+## 2. Deploy to Cloudflare Workers
 
-- Framework preset: None
-- Production branch: main
-- Root directory: repository root
-- Build command: `exit 0`
-- Output directory: `.`
+From a trusted workstation or CI environment with Wrangler authenticated for the correct Cloudflare account:
 
-Cloudflare will expose:
+```bash
+npm install
+npx wrangler deploy
+```
+
+Wrangler deploys both `worker.js` and the static asset bundle using `wrangler.jsonc`.
+
+If `EIA_API_KEY` is used, configure it as a Cloudflare secret rather than writing it into source code:
+
+```bash
+npx wrangler secret put EIA_API_KEY
+```
+
+Do not deploy from an unreviewed branch.
+
+## 3. Verify the deployed runtime
+
+After every production deployment, verify the live Worker directly:
+
+1. `GET /api/version`
+   - must return build ID `production-complete-20260916-v14`;
+2. `GET /api/health`
+   - must return healthy runtime state;
+3. load `/config.js`
+   - must point to `https://bobrilytsufxtqqqgaym.supabase.co`;
+   - must contain only a Supabase publishable key, never a service-role credential;
+4. load the application and sign in using a production Supabase user;
+5. run the in-app Production Readiness Monitor.
+
+A successful GitHub CI or GitHub Pages build is **not** proof that the Cloudflare Worker is current. The Worker runtime itself must be checked after deployment.
+
+## 4. Verify official-source adapters
+
+Open the relevant `/api/...` endpoints and confirm they return auditable source metadata when available:
 
 - `/api/fx-usd-idr`
+- `/api/bi-kurs`
 - `/api/bi-rate`
 - `/api/kurs-pajak`
+- `/api/bps-inflation`
+- `/api/bps-inflation-history`
 - `/api/wb-indicator`
 - `/api/lkpp-status`
 - `/api/esdm-electricity`
 - `/api/eia-brent` (optional; requires `EIA_API_KEY`)
 
-Add `EIA_API_KEY` under Cloudflare Pages environment variables if you want the EIA Brent source enabled.
+An unavailable official source must remain unavailable. Never hard-code, randomize or substitute synthetic production evidence.
 
-## 3. Verify providers
+## 5. Supabase production backend
 
-Open every `/api/...` URL directly. A valid adapter returns JSON and a real source/timestamp. An unavailable source must remain unavailable; do not hard-code a replacement value.
+Production Supabase project:
 
-## 4. Optional Supabase
+- Project: `HPS_Intelligence`
+- Project ref: `bobrilytsufxtqqqgaym`
+- URL: `https://bobrilytsufxtqqqgaym.supabase.co`
+- Tenant: `t1`
 
-The application works local-only without Supabase.
+The backend is already migrated to the canonical HPS schema with RLS, maker/checker RPC workflow, immutable versions, private evidence Storage and governed learning controls.
 
-For shared persistence:
+Browser configuration uses only the publishable Supabase key. Authorization remains enforced by PostgreSQL RLS/RPC, not by the browser role display.
 
-1. Create a Supabase project.
-2. Run `SUPABASE-SETUP.sql`.
-3. Create/confirm a user in Supabase Auth.
-4. Insert the tenant and tenant membership as shown at the bottom of the SQL file.
-5. Copy the project URL and **publishable key** into `config.js`.
-6. Keep service-role/secret keys out of browser code.
-7. Re-deploy and test RLS with two different users before production.
+## 6. Production acceptance
 
-## 5. Production acceptance
+Do not promote Production 2.0 RC to Production 2.0 until all of the following are complete:
 
-Do not declare production ready until:
-
-- live provider endpoints have been tested;
-- Supabase RLS has been tested if cloud mode is enabled;
-- a strict request with weak evidence is BLOCKED or uses only valid owner cost build-up, never synthetic values;
-- at least three comparable prices are present before Model B is used;
-- historical escalation is used only when verified cost-driver coverage is sufficient;
-- audit dossier export records sources, model values, confidence and runtime mode.
+- GitHub CI passes on the release commit;
+- live Cloudflare `/api/version` matches the expected build;
+- live `/config.js` points to the production Supabase project;
+- production sign-in succeeds;
+- role/RLS browser UAT passes;
+- private evidence upload/access and duplicate controls pass;
+- shared-state and five-team-user concurrency UAT passes;
+- strict evidence gates behave correctly;
+- Free-plan backup/availability residuals are formally accepted or eliminated by upgrading Supabase;
+- business/security owner release approval is recorded.
