@@ -6,16 +6,22 @@
 - Added category-dependent owner cost structures for IT hardware, SaaS, BPO, data center, logistics, payment-terminal rental, construction, consulting and general goods/services.
 - Added Evidence-to-Component Mapping with confidence scoring, validity/material-use controls, weighted evidence coverage and critical-component approval gate.
 - Added maker-checker RBAC workflow: Procurement User → Analyst/Senior → Manager → Procurement Head/Admin, plus read-only Auditor.
-- Defined server-side Supabase RLS/RPC controls, immutable version history, append-only audit trail and controlled approve/lock transitions.
+- Implemented live server-side Supabase RLS/RPC controls, immutable version history, append-only audit trail and controlled approve/lock transitions.
+- Connected production browser configuration to Supabase project `bobrilytsufxtqqqgaym` using a publishable key only; service-role credentials remain excluded from frontend code.
+- Migrated the existing Supabase users, requests and audit history into the canonical HPS data model; obsolete legacy application tables were removed only after count/data-preservation checks.
+- Core request/version mutations are now RPC-only. Direct authenticated table grants are least-privilege and anonymous HPS table grants are revoked.
+- Added private `hps-evidence` Storage with tenant-path RLS, 20 MB size policy and an evidence MIME allow-list.
 - Added private Document Evidence Hub for Contract/PO/Invoice/Quotation/BOQ/SOW/rate cards with SHA-256 duplicate control, reference versioning, expiry metadata and safe PDF/Office text extraction.
 - Added official BI multi-currency normalization and date-aligned historical FX. USD uses JISDOR; supported non-USD currencies use BI reference rates.
 - Kept Kemenkeu Kurs Pajak separate for customs/tax conversion and added a transparent landed-cost scenario with explicit user-verified duty/tax inputs.
 - Updated provider provenance: BI wsKursBI is primary for JISDOR/history; BPS public official release is the production fallback when BPS WebAPI is unavailable from the Cloudflare edge.
-- Added governed learning: new negotiation outcomes remain excluded until Manager/Head approval. Learning activates only from approved auditable outcomes.
+- Added governed learning: new negotiation outcomes remain excluded until Manager/Head approval. Model D consumes only outcomes returned by the server as approved.
 - Added historical-outcome negotiation decision support with percentile range and HPS cap; it does not auto-select a supplier or auto-approve a negotiation.
 - Added `/api/health`, final build identity, automated Node tests, GitHub CI, security model, operations/recovery runbook and 24-case UAT plan.
-- Cloudflare remains stateless; Supabase is designed as the shared multi-user system of record.
-- Production 2.0 RC is code-complete. Live multi-user promotion requires owner-approved creation/configuration of the dedicated CostIntelligence Supabase project and completion of role/RLS/UAT validation.
+- Transactional database UAT passed the Analyst-maker → Manager-review/approve → Head-lock lifecycle, maker self-review rejection, evidence-gate rejection and learning-approval RBAC. The UAT transaction was rolled back with no production test records retained.
+- Supabase Security/Performance Advisors were reviewed: material RLS/performance findings were remediated. Remaining Auth hardening item is leaked-password protection, which is currently disabled.
+- Cloudflare remains stateless; Supabase is the shared multi-user system of record.
+- Production 2.0 RC remains pending final runtime/browser UAT, final team-roster reconciliation, leaked-password-protection enablement and business/security release approval.
 
 ## Production Fresh 1.1 — Aqua/Royal Theme
 
