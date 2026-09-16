@@ -10,7 +10,7 @@
 
   var ROLES = {
     'Procurement User': { save:true, submit:true, startReview:false, returnForRework:false, approve:false, reject:false, lock:false },
-    'Analyst/Senior': { save:true, submit:false, startReview:true, returnForRework:true, approve:false, reject:false, lock:false },
+    'Analyst/Senior': { save:true, submit:true, startReview:true, returnForRework:true, approve:false, reject:false, lock:false },
     'Manager': { save:true, submit:false, startReview:true, returnForRework:true, approve:true, reject:true, lock:false },
     'Procurement Head/Admin': { save:true, submit:true, startReview:true, returnForRework:true, approve:true, reject:true, lock:true },
     'Auditor': { save:false, submit:false, startReview:false, returnForRework:false, approve:false, reject:false, lock:false },
@@ -32,7 +32,7 @@
   };
 
   function byId(id){ return document.getElementById(id); }
-  function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+  function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'})[c];}); }
   function normRole(role){ return LEGACY_ROLE_MAP[role] || role || 'No Tenant Access'; }
   function cloudReady(){ return !!(window.HPSAuth && window.HPSAuth.isConfigured && window.HPSAuth.isConfigured()); }
   function evidence(){ return window.HPSEvidenceComponentUX && window.HPSEvidenceComponentUX.getCoverage ? window.HPSEvidenceComponentUX.getCoverage() : {coveragePct:0,gate:'BLOCKED',criticalMissing:['Evidence module unavailable']}; }
