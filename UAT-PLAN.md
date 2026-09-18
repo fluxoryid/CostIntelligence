@@ -29,7 +29,7 @@ Production is accepted only when critical cases pass with **no synthetic product
 | UAT-19 | Fewer than 3 approved learning outcomes | Negotiation learning target remains unavailable |
 | UAT-20 | ≥3 approved same-category outcomes | Historical discount distribution and evidence-derived target range displayed |
 | UAT-21 | New negotiation outcome recorded | Saved as pending learning; Model D cannot consume until Manager/Head approval |
-| UAT-22 | BI/BPS/LKPP provider unavailable | Status becomes unavailable/degraded; no synthetic price inserted |
+| UAT-22 | An active official provider (for example BI/BPS/ESDM) is unavailable | Status becomes unavailable/degraded; no synthetic price inserted |
 | UAT-23 | Five users operate simultaneously | Shared Supabase records/versions remain consistent; no browser-local data collision |
 | UAT-24 | Worker deployment | `/api/version` matches expected final build ID and `/api/health` = healthy |
 
