@@ -58,7 +58,11 @@ jobs:
         run: |
           set -euo pipefail
           BASE_URL="https://costintelligence-pages.procurement-e61.workers.dev"
-          EXPECTED_BUILD="production-complete-20260916-v14"
+          EXPECTED_BUILD="$(sed -n "s/.*EXPECTED_WORKER_BUILD: '\([^']*\)'.*/\1/p" config.js | head -n1)"
+          if [ -z "$EXPECTED_BUILD" ]; then
+            echo "Unable to resolve EXPECTED_WORKER_BUILD from config.js"
+            exit 1
+          fi
 
           attempt=1
           while [ "$attempt" -le 10 ]; do
