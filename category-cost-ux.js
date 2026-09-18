@@ -171,6 +171,15 @@
       if(mq&&mr){mq.value=m>0?pq:0;mr.value=m>0?m/pq:0;} if(ld&&lr){ld.value=l>0?1:0;lr.value=l>0?l:0;} fire(mr);fire(lr);
     }finally{syncing=false;}
   }
+  function primaryAmount(){
+    var pr=PROFILES[key()]||PROFILES['services|Other'],v=values(),out=0;
+    pr.components.some(function(comp){
+      if(!comp.primary)return false;
+      out=cv(comp,v);
+      return true;
+    });
+    return out;
+  }
   function bind(){
     var t=byId('projCategory'),c=byId('engineCategory');
     if(t&&t.dataset.ccuBound!=='true'){t.dataset.ccuBound='true';t.addEventListener('change',function(){setTimeout(render,0);});}
@@ -182,6 +191,6 @@
     initialized=true;hideLegacyDirect();bind();render();
   }
 
-  window.HPSCategoryCostUX={PROFILES:PROFILES,render:render,sync:sync,init:init};
+  window.HPSCategoryCostUX={PROFILES:PROFILES,render:render,sync:sync,getPrimaryAmount:primaryAmount,init:init};
   if(document.readyState==='complete')setTimeout(init,0);else window.addEventListener('load',function(){setTimeout(init,0);});
 })();
