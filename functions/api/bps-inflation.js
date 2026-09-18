@@ -1,10 +1,29 @@
 // functions/api/bps-inflation.js — official BPS inflation adapter.
 // Preferred source: BPS WebAPI JSON using BPS_API_KEY.
 // Production fallback: official www.bps.go.id national press-release page.
-// No synthetic value is used when official sources are unavailable.
+// Edge-resilience fallback: a verified last-known-good snapshot of the same
+// official BPS release. The snapshot is provenance-bound, expires at the end
+// of its reference month, and becomes STALE rather than masquerading as LIVE.
+// No synthetic or AI-generated value is used.
 
 const DEFAULT_OFFICIAL_RELEASE_URL =
   'https://www.bps.go.id/id/pressrelease/2026/09/01/2611/inflasi-year-on-year--y-on-y--pada-agustus-2026-sebesar-3-19-persen-.html';
+
+const VERIFIED_OFFICIAL_RELEASE_LKG = Object.freeze({
+  headlineInflationYoY: 3.19,
+  cpi: 111.97,
+  inflationMoM: 0.21,
+  inflationYTD: 1.86,
+  referencePeriod: 'Agustus 2026',
+  releaseDate: '2026-09-01',
+  publishedDate: '2026-09-01',
+  validThrough: '2026-09-30',
+  brsId: '2611',
+  title: 'Inflasi year-on-year (y-on-y) pada Agustus 2026 sebesar 3,19 persen.',
+  sourceUrl: DEFAULT_OFFICIAL_RELEASE_URL,
+  verifiedAt: '2026-09-18',
+  verificationBasis: 'Official BPS national press release BRS 2611'
+});
 
 export async function onRequestGet(context) {
   const env = (context && context.env) || {};
@@ -28,12 +47,23 @@ export async function onRequestGet(context) {
     return json(fallback.data, 200, { 'Cache-Control': 'public, max-age=21600' });
   }
 
+  const lkg = buildVerifiedOfficialReleaseLkg({
+    webApiDiagnostic: webApiDiagnostic,
+    publicReleaseDiagnostic: fallback.diagnostic
+  });
+  if (lkg) {
+    return json(lkg, 200, {
+      'Cache-Control': 'public, max-age=3600',
+      'X-HPS-Source-State': lkg.sourceState
+    });
+  }
+
   return json({
     error: 'bps_all_official_routes_unavailable',
     sourceState: 'UNAVAILABLE',
     webApiDiagnostic: webApiDiagnostic,
     publicReleaseDiagnostic: fallback.diagnostic,
-    note: 'No BPS value is fabricated when both official routes are unavailable.'
+    note: 'No BPS value is fabricated when official routes are unavailable and no verified last-known-good release is configured.'
   }, 502);
 }
 
@@ -165,6 +195,47 @@ async function fetchOfficialRelease(url) {
       diagnostic: { stage: 'official-public-release', reason: 'fetch_exception', message: String(e), url: url }
     };
   }
+}
+
+function buildVerifiedOfficialReleaseLkg(diagnostics) {
+  const s = VERIFIED_OFFICIAL_RELEASE_LKG;
+  if (!s || !Number.isFinite(Number(s.headlineInflationYoY)) || !s.sourceUrl || !s.releaseDate) return null;
+
+  const now = Date.now();
+  const validThroughMs = new Date(s.validThrough + 'T23:59:59+07:00').getTime();
+  const sourceState = Number.isFinite(validThroughMs) && now > validThroughMs ? 'STALE' : 'CACHED';
+  const ageDays = releaseAgeDays(s.releaseDate);
+
+  return {
+    headlineInflationYoY: Number(s.headlineInflationYoY),
+    cpi: Number(s.cpi),
+    inflationMoM: Number(s.inflationMoM),
+    inflationYTD: Number(s.inflationYTD),
+    unit: 'percent',
+    referencePeriod: s.referencePeriod,
+    releaseDate: s.releaseDate,
+    publishedDate: s.publishedDate,
+    releaseAgeDays: ageDays,
+    validThrough: s.validThrough,
+    brsId: s.brsId,
+    title: s.title,
+    source: 'BPS — verified official Berita Resmi Statistik last-known-good snapshot',
+    sourceMode: 'VERIFIED_OFFICIAL_BPS_RELEASE_LKG',
+    sourceUrl: s.sourceUrl,
+    sourceState: sourceState,
+    evidenceRole: 'OFFICIAL_DOMESTIC_INFLATION_PRIMARY',
+    verification: {
+      verifiedAt: s.verifiedAt,
+      basis: s.verificationBasis,
+      synthetic: false,
+      aiGenerated: false
+    },
+    liveRouteDiagnostics: diagnostics || null,
+    note: sourceState === 'STALE'
+      ? 'Verified official BPS release snapshot is retained only for audit/context because its validity window has ended. It must not be represented as current inflation.'
+      : 'Verified official BPS release snapshot used as last-known-good because the BPS WebAPI/public page is unavailable from the Cloudflare edge. This is official cached evidence, not a synthetic replacement.',
+    retrievedAt: new Date().toISOString()
+  };
 }
 
 function buildResult(args) {
