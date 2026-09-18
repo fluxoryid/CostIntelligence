@@ -634,7 +634,7 @@
   function resetHps(){
     if(!currentUser){showAccessGate('Sesi tidak valid. Silakan masuk kembali.');return;}
     if(!window.confirm('Reset seluruh nilai perhitungan HPS aktif menjadi 0? Histori yang sudah tersimpan di server tidak akan dihapus.'))return;
-    var zeroIds=['matQty','matUnitPrice','laborDays','laborRate','overheadPercent','profitPercent','principalDiscountValue','historicalPrice','historicalFxRate','benchmark1','benchmark2','benchmark3','v1Price','v2Price','actualOutcomePrice','actualInvoicePrice'];
+    var zeroIds=['matQty','matUnitPrice','laborDays','laborRate','overheadPercent','profitPercent','principalDiscountValue','historicalPrice','historicalFxRate','benchmark1','benchmark2','benchmark3'];
     zeroIds.forEach(function(id){var x=el(id);if(x){x.value='0';x.dispatchEvent(new Event('input',{bubbles:true}));x.dispatchEvent(new Event('change',{bubbles:true}));}});
     var panel=el('categoryCostProfilePanel');
     if(panel) panel.querySelectorAll('[data-ccu-key]').forEach(function(x){x.value='0';x.dispatchEvent(new Event('input',{bubbles:true}));x.dispatchEvent(new Event('change',{bubbles:true}));});
@@ -649,13 +649,36 @@
     notify('HPS aktif telah direset ke 0. Histori server tidak dihapus.', 'success');
   }
 
+  function isHpsCalculationInput(node) {
+    if (!node) return false;
+    if (node.hasAttribute && node.hasAttribute('data-ccu-key')) return true;
+    var id=node.id||'';
+    return [
+      'projCategory','engineCategory','subCategory','baseCurrency',
+      'matQty','matUnitPrice','laborDays','laborRate',
+      'overheadPercent','profitPercent','taxPercent',
+      'principalDiscountMode','principalDiscountValue',
+      'historicalPrice','historicalFxRate','historicalPurchaseDate','allowBpsCpiProxy',
+      'benchmark1Type','benchmark1','benchmark2Type','benchmark2','benchmark3Type','benchmark3'
+    ].indexOf(id)!==-1;
+  }
+
+  function exitResetMode() {
+    if (!hpsResetMode) return;
+    hpsResetMode=false;
+    persistForm();
+  }
+
   function bind() {
     document.querySelectorAll('input, select, textarea').forEach(function (node) {
-      if (node.id && node.id.indexOf('auth') !== 0 && node.id.indexOf('gate') !== 0) node.addEventListener('input', function(ev) {
-        if (ev && ev.isTrusted) hpsResetMode = false;
-        recalculate();
-      });
+      if (node.id && node.id.indexOf('auth') !== 0 && node.id.indexOf('gate') !== 0) node.addEventListener('input', recalculate);
     });
+    document.addEventListener('input',function(ev){
+      if(ev&&ev.isTrusted&&isHpsCalculationInput(ev.target)) exitResetMode();
+    },true);
+    document.addEventListener('change',function(ev){
+      if(ev&&ev.isTrusted&&isHpsCalculationInput(ev.target)) { exitResetMode(); recalculate(); }
+    },true);
     el('btnSync').addEventListener('click', syncProviders);
     el('btnExport').addEventListener('click', exportDossier);
     el('btnSave').addEventListener('click', saveSnapshot);
@@ -664,6 +687,8 @@
     el('btnRecordOutcome').addEventListener('click', recordOutcome);
     el('authSubmit').addEventListener('click', submitAuth);
   }
+
+  window.HPSAppControl={exitResetMode:exitResetMode,isReset:function(){return hpsResetMode;},recalculate:recalculate};
 
   document.addEventListener('DOMContentLoaded', function () {
     bindAccessGate();
