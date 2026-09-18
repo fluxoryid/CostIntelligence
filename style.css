@@ -177,3 +177,17 @@ body.yokke-theme h3 i { filter: saturate(.92); }
   body.yokke-theme > header > div { padding-top: .7rem; padding-bottom: .7rem; }
   body.yokke-theme main { padding-top: 1rem; }
 }
+
+
+/* Valid credentials are required before the application shell is exposed. */
+body.auth-locked > header,
+body.auth-locked > nav,
+body.auth-locked > #notificationBar,
+body.auth-locked > main,
+body.auth-locked > section:not(#authAccessGate),
+body.auth-locked > footer,
+body.auth-locked > dialog {
+  display: none !important;
+}
+#authAccessGate { display: none; }
+body.auth-locked #authAccessGate { display: flex; }
