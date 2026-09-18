@@ -1,15 +1,26 @@
 {
   "name": "HPS Intelligence",
-  "release": "Production 2.0 RC",
-  "date": "2026-09-18",
-  "workerBuild": "production-complete-20260916-v14",
+  "release": "Production 2.1",
+  "date": "2026-09-19",
+  "workerBuild": "production-2.1-20260919-v1",
   "defaultCalculationMode": "HYBRID_STRICT",
   "syntheticProductionEvidence": false,
   "multiUserArchitecture": "Cloudflare Worker + Supabase Auth/PostgreSQL/Storage",
-  "productionBackendStatus": "live Supabase backend and Cloudflare Worker runtime verified; final browser/team UAT pending",
+  "productionBackendStatus": "live Supabase backend; credential-gated Production 2.1 core release",
   "supabaseProjectRef": "bobrilytsufxtqqqgaym",
   "tenantId": "t1",
   "theme": "Aqua / Royal / Poppins",
   "cloudflareDeploymentStatus": "verified",
-  "productionUrl": "https://costintelligence-pages.procurement-e61.workers.dev"
+  "productionUrl": "https://costintelligence-pages.procurement-e61.workers.dev",
+  "releaseScope": [
+    "parameter value dates",
+    "Principal/OEM discount percentage or amount",
+    "Reset HPS",
+    "mandatory validated login and active tenant membership",
+    "Bahasa Indonesia UI"
+  ],
+  "deferredIntegrations": {
+    "LKPP Open Data": "deferred by owner",
+    "INAPROC transaction history": "adapter staged; UI disabled until authorized token validation"
+  }
 }

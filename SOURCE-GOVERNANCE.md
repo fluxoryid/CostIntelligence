@@ -7,17 +7,18 @@ Production HPS must distinguish **source credibility** from **direct price relev
 1. Internal executed PO / signed contract / paid invoice — primary price evidence for comparable repeat procurement.
 2. Principal/OEM official quotation — primary commercial evidence, triangulated because the seller is not independent.
 3. Authorized distributor quotation — strong local-market evidence.
-4. LKPP / INAPROC / E-Katalog comparable — strong procurement benchmark; catalog/list price is not automatically the negotiated transaction price.
-5. BPS — primary Indonesia inflation/statistical cost-driver source.
-6. Bank Indonesia JISDOR — official USD/IDR market-reference cost driver.
-7. Kementerian Keuangan / DJP Kurs Pajak — official weekly tax/customs FX rate.
-8. DJBC / CEISA — customs/tariff/import exposure where authenticated access is available.
-9. ESDM — energy/electricity regulation and energy cost drivers; use the correct customer class.
-10. Official UMP/UMK/UMSK decree / JDIH — labor escalation.
-11. World Bank — macro cross-check/context, not direct product pricing.
-12. UN Comtrade — supporting import/trade benchmark after HS-code and unit normalization.
-13. U.S. EIA — oil/energy cost-driver benchmark.
-14. Route-specific freight/carrier quotation — supporting logistics evidence.
+4. Data INAPROC transaction history — strong official E-Purchasing price benchmark after tax-basis and comparability review; authenticated Data Integrator access is required.
+5. LKPP / INAPROC / E-Katalog comparable — strong procurement benchmark; catalog/list price is not automatically the negotiated transaction price.
+6. BPS — primary Indonesia inflation/statistical cost-driver source.
+7. Bank Indonesia JISDOR — official USD/IDR market-reference cost driver.
+8. Kementerian Keuangan / DJP Kurs Pajak — official weekly tax/customs FX rate.
+9. DJBC / CEISA — customs/tariff/import exposure where authenticated access is available.
+10. ESDM — energy/electricity regulation and energy cost drivers; use the correct customer class.
+11. Official UMP/UMK/UMSK decree / JDIH — labor escalation.
+12. World Bank — macro cross-check/context, not direct product pricing.
+13. UN Comtrade — supporting import/trade benchmark after HS-code and unit normalization.
+14. U.S. EIA — oil/energy cost-driver benchmark.
+15. Route-specific freight/carrier quotation — supporting logistics evidence.
 
 ## Prohibited as production price evidence
 
@@ -52,11 +53,11 @@ Classification:
 
 ## Official reference endpoints used by this package
 
+- Data INAPROC API Gateway (authenticated Data Integrator): https://data.inaproc.id/
 - Bank Indonesia JISDOR / monetary indicator pages: https://www.bi.go.id/
 - Kementerian Keuangan / Kurs Pajak: https://fiskal.kemenkeu.go.id/informasi-publik/kurs-pajak
-- LKPP Open Data: https://data.lkpp.go.id/
 - World Bank API: https://api.worldbank.org/v2/
 - ESDM JDIH: https://jdih.esdm.go.id/
 - U.S. EIA Open Data API: https://api.eia.gov/v2/
 
-BPS, DJBC/CEISA, UN Comtrade, and some commercial logistics sources require credentials, dataset-specific mapping, licensing, or a separate integration and therefore remain unavailable until configured. The engine does not fabricate replacements.
+BPS, DJBC/CEISA, UN Comtrade, Data INAPROC transaction history, and some commercial logistics sources require credentials, dataset-specific mapping, licensing, or a separate integration and therefore remain unavailable until configured. The Data INAPROC adapter is staged but disabled in Production 2.1 until an authorized token is validated. The engine does not fabricate replacements.

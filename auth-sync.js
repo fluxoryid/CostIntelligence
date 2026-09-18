@@ -20,13 +20,21 @@
     }).catch(function(){return baseUser(u,'No Tenant Access',false);});
   }
   function signIn(email,password){
-    var c=getClient();if(!c)return Promise.resolve({error:'Supabase is not configured; application is running local-only.'});
-    return c.auth.signInWithPassword({email:email,password:password}).then(function(r){if(r.error)return{error:r.error.message};return loadUser(r.data.user).then(function(user){if(user.role==='No Tenant Access')return{error:'Authenticated, but this account has no active tenant membership.'};return{user:user};});});
+    var c=getClient();if(!c)return Promise.resolve({error:'Supabase belum dikonfigurasi.'});
+    return c.auth.signInWithPassword({email:email,password:password}).then(function(r){
+      if(r.error)return{error:'Kredensial tidak valid atau login ditolak: '+r.error.message};
+      return loadUser(r.data.user).then(function(user){
+        if(!user || user.active===false || user.role==='No Tenant Access'){
+          return c.auth.signOut().then(function(){return{error:'Kredensial terautentikasi, tetapi akun tidak memiliki keanggotaan tenant HPS yang aktif.'};});
+        }
+        return{user:user};
+      });
+    });
   }
   function signUp(email,password){
-    if(!cfg().ALLOW_SELF_SIGNUP)return Promise.resolve({error:'Self-sign-up is disabled. Ask the Procurement Head/Admin to invite the user.'});
-    var c=getClient();if(!c)return Promise.resolve({error:'Supabase is not configured; application is running local-only.'});
-    return c.auth.signUp({email:email,password:password}).then(function(r){if(r.error)return{error:r.error.message};if(!r.data.user)return{error:'Check your email to confirm the account, then sign in.'};return loadUser(r.data.user).then(function(user){return{user:user};});});
+    if(!cfg().ALLOW_SELF_SIGNUP)return Promise.resolve({error:'Pendaftaran mandiri dinonaktifkan. Hubungi Procurement Head/Admin untuk mengundang pengguna.'});
+    var c=getClient();if(!c)return Promise.resolve({error:'Supabase belum dikonfigurasi.'});
+    return c.auth.signUp({email:email,password:password}).then(function(r){if(r.error)return{error:r.error.message};if(!r.data.user)return{error:'Periksa email untuk mengonfirmasi akun, lalu masuk kembali.'};return loadUser(r.data.user).then(function(user){return{user:user};});});
   }
   function signOut(){var c=getClient();return c?c.auth.signOut():Promise.resolve();}
   function getSession(){var c=getClient();if(!c)return Promise.resolve(null);return c.auth.getSession().then(function(r){var u=r.data&&r.data.session&&r.data.session.user;return u?loadUser(u):null;}).catch(function(){return null;});}

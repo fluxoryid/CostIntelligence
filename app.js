@@ -14,6 +14,8 @@
   var currentRequestId = 'req_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
   var latestSnapshot = null;
   var syncInFlight = false;
+  var appStarted = false;
+  var hpsResetMode = false;
 
   function el(id) { return document.getElementById(id); }
   function num(id) { var n = Number(el(id) && el(id).value); return isFinite(n) ? n : 0; }
@@ -26,6 +28,16 @@
     return Number(v).toLocaleString('id-ID', { minimumFractionDigits: digits || 0, maximumFractionDigits: digits || 0 });
   }
   function isoNow() { return new Date().toISOString(); }
+  function formatParameterDate(raw) {
+    if (!raw) return '—';
+    var s = String(raw).trim();
+    var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) {
+      var d = new Date(iso[1] + '-' + iso[2] + '-' + iso[3] + 'T00:00:00Z');
+      if (isFinite(d.getTime())) return new Intl.DateTimeFormat('id-ID', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' }).format(d);
+    }
+    return s;
+  }
 
   function notify(message, type) {
     var bar = el('notificationBar');
@@ -41,14 +53,39 @@
   }
 
   function ownerBuildUp() {
-    var material = num('matQty') * num('matUnitPrice');
+    var materialGross = num('matQty') * num('matUnitPrice');
     var labor = num('laborDays') * num('laborRate');
+    var primaryBase = materialGross;
+    if (window.HPSCategoryCostUX && typeof window.HPSCategoryCostUX.getPrimaryAmount === 'function') {
+      var categoryPrimary = Number(window.HPSCategoryCostUX.getPrimaryAmount());
+      if (isFinite(categoryPrimary) && categoryPrimary >= 0) primaryBase = Math.min(materialGross, categoryPrimary);
+    }
+    var discountMode = el('principalDiscountMode') ? el('principalDiscountMode').value : 'PERCENT';
+    var discountValue = num('principalDiscountValue');
+    var principalDiscount = discountMode === 'AMOUNT'
+      ? Math.min(primaryBase, Math.max(0, discountValue))
+      : Math.min(primaryBase, primaryBase * Math.min(100, Math.max(0, discountValue)) / 100);
+    var material = Math.max(0, materialGross - principalDiscount);
     var direct = material + labor;
     var overhead = direct * (num('overheadPercent') / 100);
     var profit = (direct + overhead) * (num('profitPercent') / 100);
     var net = direct + overhead + profit;
     var tax = net * (num('taxPercent') / 100);
-    return { material: material, labor: labor, direct: direct, overhead: overhead, profit: profit, net: net, tax: tax, gross: net + tax };
+    return {
+      materialGross: materialGross,
+      primaryDiscountBase: primaryBase,
+      principalDiscountMode: discountMode,
+      principalDiscountInput: discountValue,
+      principalDiscount: principalDiscount,
+      material: material,
+      labor: labor,
+      direct: direct,
+      overhead: overhead,
+      profit: profit,
+      net: net,
+      tax: tax,
+      gross: net + tax
+    };
   }
 
   function applyLiveDataOverrides(sources) {
@@ -67,8 +104,32 @@
     var benchmarks = [1,2,3].map(function (i) {
       var value = num('benchmark' + i); if (value <= 0) return null;
       var key = el('benchmark' + i + 'Type').value;
-      var gov = window.HPSSourceEngine ? window.HPSSourceEngine.scoreSource(key, {retrievedAt:isoNow()}) : {allowed:true,label:key,grade:'ACCEPTABLE'};
-      return { value:value, sourceKey:key, status:gov.allowed ? 'USER PROVIDED' : 'REJECTED', source:gov.label, observedAt:isoNow(), governance:gov };
+      var meta = key === 'INAPROC_TRANSACTION' && window.HPSInaproc && window.HPSInaproc.getSelectedBenchmark
+        ? window.HPSInaproc.getSelectedBenchmark(i) : null;
+      var publishedDate = meta && meta.transactionDate ? meta.transactionDate : null;
+      var gov = window.HPSSourceEngine
+        ? window.HPSSourceEngine.scoreSource(key, {retrievedAt:(meta&&meta.retrievedAt)||isoNow(),publishedDate:publishedDate})
+        : {allowed:true,label:key,grade:'ACCEPTABLE'};
+      var hasRequiredInaprocProvenance = key !== 'INAPROC_TRANSACTION' || !!(meta && meta.reference && meta.retrievedAt && meta.priceBasis && meta.priceBasis !== 'UNVERIFIED');
+      return {
+        value:value,
+        sourceKey:key,
+        status:(gov.allowed && hasRequiredInaprocProvenance) ? 'USER PROVIDED' : 'REJECTED',
+        source:gov.label,
+        observedAt:publishedDate || isoNow(),
+        reference:meta&&meta.reference||null,
+        vendor:meta&&meta.vendor||null,
+        quantity:meta&&meta.quantity||null,
+        packageName:meta&&meta.packageName||null,
+        itemName:meta&&meta.itemName||null,
+        priceBasis:meta&&meta.priceBasis||null,
+        rawUnitPrice:meta&&meta.rawUnitPrice||null,
+        normalizedUnitPrice:meta&&meta.normalizedUnitPrice||null,
+        taxPct:meta&&meta.taxPct||null,
+        sourceUrl:meta&&meta.sourceUrl||null,
+        retrievedAt:meta&&meta.retrievedAt||isoNow(),
+        governance:gov
+      };
     }).filter(Boolean);
     var input = {
       businessUnit: '', requester: currentUser ? currentUser.name : 'Local User',
@@ -79,8 +140,9 @@
       historicalFxRate: num('historicalFxRate') || '', supplierQuotation: '', principalQuotation: '',
       marketBenchmarks: benchmarks,
       shouldCostBase: build.net > 0 ? build.net : '', costDriverObservations: [],
-      commercialTerms: '', warranty: '', taxTreatment: 'PPN efektif ' + num('taxPercent') + '%',
-      notes: 'Owner cost build-up from enterprise interface. Direct inputs supplied by user.', calculationMode: (window.HPS_CONFIG && window.HPS_CONFIG.CALCULATION_MODE) || 'HYBRID_STRICT'
+      commercialTerms: 'Diskon Principal/OEM: ' + (build.principalDiscountMode === 'AMOUNT' ? fmtIDR(build.principalDiscountInput) : fmtNum(build.principalDiscountInput,2) + '%') + '; nilai diskon diterapkan: ' + fmtIDR(build.principalDiscount),
+      warranty: '', taxTreatment: 'PPN efektif ' + num('taxPercent') + '%',
+      notes: 'Rincian biaya HPS berasal dari input pengguna dan bukti pendukung yang diterima.', calculationMode: (window.HPS_CONFIG && window.HPS_CONFIG.CALCULATION_MODE) || 'HYBRID_STRICT'
     };
     var req = {
       id: currentRequestId, tenantId: TENANT_ID, version: 1, status: 'Draft', calculationMode: input.calculationMode, runtimeMode: 'BLOCKED',
@@ -92,7 +154,29 @@
     req.sources = applyLiveDataOverrides(window.CalcCore.generateSources(input, true));
     // Explicit market comparables are evidence objects, not anonymous numbers.
     (input.marketBenchmarks || []).forEach(function (b, i) {
-      req.sources.push({ sourceKey:b.sourceKey, name:(b.source || 'Comparable') + ' #' + (i + 1), status:b.status || 'USER PROVIDED', value:b.value, publishedDate:b.observedAt || null, retrievedAt:isoNow(), freshness:'Fresh', trustScore:b.governance ? b.governance.score : 75, note:'User-attested comparable; specification and commercial-term comparability remain the reviewer responsibility.' });
+      req.sources.push({
+        sourceKey:b.sourceKey,
+        name:(b.source || 'Pembanding') + ' #' + (i + 1),
+        status:b.status || 'USER PROVIDED',
+        value:b.value,
+        publishedDate:b.observedAt || null,
+        retrievedAt:b.retrievedAt || isoNow(),
+        freshness:'Fresh',
+        trustScore:b.governance ? b.governance.score : 75,
+        reference:b.reference || null,
+        vendor:b.vendor || null,
+        quantity:b.quantity || null,
+        packageName:b.packageName || null,
+        itemName:b.itemName || null,
+        priceBasis:b.priceBasis || null,
+        rawUnitPrice:b.rawUnitPrice || null,
+        normalizedUnitPrice:b.normalizedUnitPrice || null,
+        taxPct:b.taxPct || null,
+        sourceUrl:b.sourceUrl || null,
+        note:b.sourceKey==='INAPROC_TRANSACTION'
+          ? 'Riwayat transaksi resmi Data INAPROC; dipilih pengguna setelah verifikasi basis harga dan tetap memerlukan telaah kesebandingan spesifikasi, kuantitas, lokasi, pajak, ongkir, periode, dan ruang lingkup.'
+          : 'Pembanding yang diatestasi pengguna; kesebandingan spesifikasi dan ketentuan komersial tetap menjadi tanggung jawab peninjau.'
+      });
     });
     if (window.HPSSourceEngine) {
       req.sources = req.sources.map(function (src) {
@@ -120,10 +204,24 @@
     var build = ownerBuildUp();
     el('subtotalMaterial').textContent = fmtIDR(build.material);
     el('subtotalLabor').textContent = fmtIDR(build.labor);
+    if (el('principalDiscountDisplay')) el('principalDiscountDisplay').textContent = '-' + fmtIDR(build.principalDiscount);
     el('ownerBuildDisplay').textContent = fmtIDR(build.net);
 
     var req = calculateStrict(buildRequest(build));
     var netHps = req.hps.recommended;
+    if (hpsResetMode) {
+      Object.keys(req.hps.models || {}).forEach(function(k){
+        req.hps.models[k] = { value:null, status:'UNAVAILABLE', reason:'HPS direset oleh pengguna.' };
+      });
+      req.hps.recommended = 0;
+      req.hps.low = 0;
+      req.hps.high = 0;
+      req.hps.confidence = 0;
+      req.hps.confidenceLabel = 'Direset';
+      req.runtimeMode = 'BLOCKED';
+      req.runtimeReason = 'HPS aktif telah direset ke 0. Masukkan nilai biaya/evidence baru untuk memulai perhitungan.';
+      netHps = 0;
+    }
     var grossHps = netHps == null ? null : netHps * (1 + num('taxPercent') / 100);
     latestSnapshot = buildSnapshot(req, build, grossHps);
 
@@ -154,7 +252,7 @@
     el('runtimeReason').textContent = req.runtimeReason || '';
     el('confidenceDisplay').textContent = req.hps.recommended == null ? '—' : (req.hps.confidence + '% · ' + req.hps.confidenceLabel);
     var used = Object.keys(req.hps.models).filter(function (k) { return req.hps.models[k] && req.hps.models[k].value != null; });
-    el('modelsUsedDisplay').textContent = used.length ? used.join(' / ') : 'None';
+    el('modelsUsedDisplay').textContent = used.length ? used.join(' / ') : 'Tidak Ada';
   }
 
   function updateBudget(grossHps) {
@@ -205,7 +303,7 @@
   }
 
   function updateModels(models) {
-    var labels = { A:'Historical Escalation', B:'Market Benchmark', C:'Should-Cost Build-up', D:'Learning Model' };
+    var labels = { A:'Eskalasi Historis', B:'Acuan Pasar', C:'Rincian Should-Cost', D:'Model Pembelajaran' };
     el('modelCards').innerHTML = ['A','B','C','D'].map(function (k) {
       var m = models[k] || {}; var ok = m.value != null;
       var status = m.status || 'UNAVAILABLE';
@@ -267,14 +365,14 @@
     if (req.runtimeMode === 'DEMO' || req.runtimeMode === 'BLOCKED') { notify('Only non-demo, evidence-backed requests can enter the learning set.', 'error'); return; }
     var award = num('actualOutcomePrice'), invoice = num('actualInvoicePrice');
     var actual = invoice > 0 ? invoice : award;
-    if (actual <= 0) { notify('Enter the final award or actual invoice value.', 'error'); return; }
+    if (actual <= 0) { notify('Masukkan nilai penetapan final atau nilai invoice aktual.', 'error'); return; }
     var initialBids = [num('v1Price'),num('v2Price')].filter(function(n){return n>0;});
     var stats = window.CalcCore.computeOutcomeLearning(req, { actualCost:actual, contractPrice:award || actual, supplierInitialBid:initialBids.length ? Math.min.apply(Math,initialBids) : null });
     var event = Object.assign({}, stats, { id:'learn_' + Date.now(), category:req.input.category, productName:req.input.productName, approvedForLearning:true, sourceMode:req.runtimeMode, observedAt:isoNow() });
     learningEvents.push(event); saveLocalLearning();
     if (currentUser && window.HPSCloud && window.HPSCloud.pushLearningOutcome) window.HPSCloud.pushLearningOutcome(event);
     el('actualOutcomePrice').value=''; el('actualInvoicePrice').value='';
-    notify('Approved outcome recorded for controlled learning.', 'success'); recalculate();
+    notify('Hasil yang disetujui telah dicatat untuk pembelajaran terkendali.', 'success'); recalculate();
   }
 
   function buildSnapshot(req, build, grossHps) {
@@ -292,20 +390,45 @@
     var fx = window.HPSFx && window.HPSFx.getRate();
     var kp = window.HPSFx && window.HPSFx.getKursPajak();
     var bi = window.HPSFx && window.HPSFx.getBiRate();
+    var bps = window.HPSBPS && window.HPSBPS.getInflation ? window.HPSBPS.getInflation() : null;
     var esdm = window.HPSLkpp && window.HPSLkpp.getEsdmData();
     var lkpp = window.HPSLkpp && window.HPSLkpp.getData();
     var fxOfficial = fx && /Bank Indonesia JISDOR/i.test(fx.source || '');
-    if (el('tickerFxLabel')) el('tickerFxLabel').textContent = fxOfficial ? 'USD / IDR (JISDOR):' : 'USD / IDR (market ref):';
-    el('tickerFxUsd').textContent = fx && fx.rate ? 'Rp' + fmtNum(fx.rate,0) : statusText(window.HPSFx && window.HPSFx.getStatus());
-    el('tickerKursPajak').textContent = kp && kp.rate ? 'Rp' + fmtNum(kp.rate,0) : statusText(window.HPSFx && window.HPSFx.getKursPajakStatus());
-    el('tickerBiRate').textContent = bi && bi.rate != null ? fmtNum(bi.rate,2) + '%' : statusText(window.HPSFx && window.HPSFx.getBiRateStatus());
-    el('tickerEsdm').textContent = esdm ? 'REGULATION VERIFIED' : statusText(window.HPSLkpp && window.HPSLkpp.getEsdmStatus());
-    el('tickerLkpp').textContent = lkpp ? 'DATASET LIVE' : statusText(window.HPSLkpp && window.HPSLkpp.getStatus());
-    if (fx && fx.rate) el('fxRateInput').value = Math.round(fx.rate);
+
+    if (el('tickerFxLabel')) el('tickerFxLabel').textContent = fxOfficial ? 'USD / IDR (JISDOR):' : 'USD / IDR (referensi pasar):';
+    if (el('tickerFxUsd')) el('tickerFxUsd').textContent = fx && fx.rate ? 'Rp' + fmtNum(fx.rate,0) : statusText(window.HPSFx && window.HPSFx.getStatus());
+    if (el('tickerFxDate')) el('tickerFxDate').textContent = 'Tanggal nilai: ' + formatParameterDate(fx && (fx.publishedDateRaw || fx.date));
+    if (el('tickerFxUsd') && fx) el('tickerFxUsd').title = (fx.source || 'Bank Indonesia') + ' · diambil ' + formatParameterDate(fx.retrievedAt && String(fx.retrievedAt).slice(0,10));
+
+    if (el('tickerKursPajak')) el('tickerKursPajak').textContent = kp && kp.rate ? 'Rp' + fmtNum(kp.rate,0) : statusText(window.HPSFx && window.HPSFx.getKursPajakStatus());
+    if (el('tickerKursPajakDate')) el('tickerKursPajakDate').textContent = 'Masa berlaku: ' + (kp && kp.effectivePeriod ? kp.effectivePeriod : '—');
+    if (el('tickerKursPajak') && kp) el('tickerKursPajak').title = (kp.source || 'Kementerian Keuangan') + ' · diambil ' + formatParameterDate(kp.retrievedAt && String(kp.retrievedAt).slice(0,10));
+
+    if (el('tickerBiRate')) el('tickerBiRate').textContent = bi && bi.rate != null ? fmtNum(bi.rate,2) + '%' : statusText(window.HPSFx && window.HPSFx.getBiRateStatus());
+    if (el('tickerBiRateDate')) el('tickerBiRateDate').textContent = 'Tanggal nilai: ' + formatParameterDate(bi && bi.publishedDateRaw);
+    if (el('tickerBiRate') && bi) el('tickerBiRate').title = (bi.source || 'Bank Indonesia') + ' · diambil ' + formatParameterDate(bi.retrievedAt && String(bi.retrievedAt).slice(0,10));
+
+    if (el('tickerBps')) {
+      var bpsStatus = window.HPSBPS && window.HPSBPS.getStatus ? window.HPSBPS.getStatus() : null;
+      el('tickerBps').textContent = bps && typeof bps.headlineInflationYoY === 'number'
+        ? fmtNum(bps.headlineInflationYoY,2) + '% YoY' + (bps.sourceState === 'CACHED' ? ' · TERSIMPAN' : bps.sourceState === 'STALE' ? ' · KEDALUWARSA' : '')
+        : statusText(bpsStatus);
+      el('tickerBps').title = bps ? (bps.source || 'BPS') : '';
+    }
+    if (el('tickerBpsDate')) {
+      var bpsPeriod = bps && bps.referencePeriod ? bps.referencePeriod : '—';
+      var bpsRelease = bps && bps.releaseDate ? formatParameterDate(bps.releaseDate) : '—';
+      el('tickerBpsDate').textContent = 'Periode nilai: ' + bpsPeriod + ' · Rilis: ' + bpsRelease;
+    }
+
+    if (el('tickerEsdm')) el('tickerEsdm').textContent = esdm ? 'REGULASI TERVERIFIKASI' : statusText(window.HPSLkpp && window.HPSLkpp.getEsdmStatus());
+    if (el('tickerLkpp')) el('tickerLkpp').textContent = lkpp ? 'DATASET LANGSUNG' : statusText(window.HPSLkpp && window.HPSLkpp.getStatus());
+    if (fx && fx.rate && el('fxRateInput')) el('fxRateInput').value = Math.round(fx.rate);
 
     var statuses = [
       window.HPSFx && window.HPSFx.getStatus(), window.HPSFx && window.HPSFx.getKursPajakStatus(),
       window.HPSFx && window.HPSFx.getBiRateStatus(), window.HPSWB && window.HPSWB.getStatus(),
+      window.HPSBPS && window.HPSBPS.getStatus && window.HPSBPS.getStatus(),
       window.HPSLkpp && window.HPSLkpp.getStatus(), window.HPSLkpp && window.HPSLkpp.getEsdmStatus()
     ].filter(Boolean);
     var online = statuses.filter(function (s) { return s === 'online'; }).length;
@@ -313,17 +436,17 @@
     var badge = el('benchmarkHealthBadge');
     if (online >= 3) {
       badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800';
-      badge.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1.5 animate-pulse text-emerald-400"></i> LIVE BENCHMARKS';
+      badge.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1.5 animate-pulse text-emerald-400"></i> ACUAN LANGSUNG';
     } else if (online + cached > 0) {
       badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-950 text-amber-300 border border-amber-800';
-      badge.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1.5 text-amber-400"></i> PARTIAL / CACHED';
+      badge.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1.5 text-amber-400"></i> SEBAGIAN / TERSIMPAN';
     } else {
       badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-rose-950 text-rose-300 border border-rose-800';
-      badge.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1.5 text-rose-400"></i> PROVIDERS OFFLINE';
+      badge.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1.5 text-rose-400"></i> PENYEDIA DATA TIDAK TERHUBUNG';
     }
   }
 
-  function statusText(s) { return s === 'cached' ? 'CACHED' : s === 'connecting' ? 'CONNECTING' : 'UNAVAILABLE'; }
+  function statusText(s) { return s === 'cached' ? 'TERSIMPAN' : s === 'stale' ? 'KEDALUWARSA' : s === 'connecting' ? 'MENGHUBUNGKAN' : s === 'online' ? 'LANGSUNG' : 'TIDAK TERSEDIA'; }
 
   function initProvider(adapter, method) {
     return new Promise(function (resolve) {
@@ -339,20 +462,20 @@
     if (syncInFlight) return;
     syncInFlight = true;
     var btn = el('btnSync');
-    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Syncing...';
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Menyinkronkan...';
     Promise.all([
       initProvider(window.HPSFx, 'init'), initProvider(window.HPSWB, 'init'), initProvider(window.HPSLkpp, 'init')
     ]).then(function () {
       updateTickers(); recalculate();
-      btn.innerHTML = '<i class="fa-solid fa-check mr-1 text-emerald-400"></i> Synced';
-      setTimeout(function () { btn.innerHTML = '<i class="fa-solid fa-rotate mr-1"></i> Sync Data'; btn.disabled = false; }, 1200);
+      btn.innerHTML = '<i class="fa-solid fa-check mr-1 text-emerald-400"></i> Tersinkron';
+      setTimeout(function () { btn.innerHTML = '<i class="fa-solid fa-rotate mr-1"></i> Sinkronkan Data'; btn.disabled = false; }, 1200);
       syncInFlight = false;
     });
   }
 
   function persistForm() {
-    var ids = ['projName','projCategory','engineCategory','budgetLimit','baseCurrency','projDescription','matQty','matUnitPrice','laborDays','laborRate','overheadPercent','profitPercent','taxPercent','historicalPrice','historicalFxRate','benchmark1Type','benchmark1','benchmark2Type','benchmark2','benchmark3Type','benchmark3','v1Name','v1Price','v2Name','v2Price'];
-    var data = { requestId:currentRequestId, fields:{} };
+    var ids = ['projName','projCategory','engineCategory','budgetLimit','baseCurrency','projDescription','matQty','matUnitPrice','laborDays','laborRate','overheadPercent','profitPercent','taxPercent','principalDiscountMode','principalDiscountValue','historicalPrice','historicalFxRate','benchmark1Type','benchmark1','benchmark2Type','benchmark2','benchmark3Type','benchmark3','v1Name','v1Price','v2Name','v2Price'];
+    var data = { requestId:currentRequestId, resetToZero:hpsResetMode, fields:{} };
     ids.forEach(function (id) { if (el(id)) data.fields[id] = el(id).value; });
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
   }
@@ -362,6 +485,7 @@
       var data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (!data || !data.fields) return;
       currentRequestId = data.requestId || currentRequestId;
+      hpsResetMode = data.resetToZero === true;
       Object.keys(data.fields).forEach(function (id) { if (el(id)) el(id).value = data.fields[id]; });
     } catch (e) {}
     updateRef();
@@ -387,15 +511,15 @@
     recalculate();
     if (!latestSnapshot || !latestSnapshot.rawRequest) return;
     if (!currentUser) {
-      persistForm(); notify('Saved locally. Configure Supabase in config.js and sign in to enable shared synchronization.', 'success'); return;
+      showAccessGate('Sesi tidak valid. Silakan masuk kembali sebelum menyimpan HPS.'); return;
     }
-    if (!window.HPSCloud) { notify('Cloud connector unavailable; saved locally only.', 'error'); return; }
+    if (!window.HPSCloud) { notify('Konektor cloud tidak tersedia; penyimpanan dibatalkan.', 'error'); return; }
     var req = latestSnapshot.rawRequest;
     req.createdBy = currentUser.name; req.input.requester = currentUser.name;
     window.HPSCloud.pushRequest(req).then(function (result) {
       updateCloudBadge();
-      if (result && result.error) notify('Cloud save failed: ' + result.error + '. Local copy remains available.', 'error');
-      else notify('Snapshot submitted to cloud sync. RLS policies remain the authorization boundary.', 'success');
+      if (result && result.error) notify('Penyimpanan ke cloud gagal: ' + result.error + '.', 'error');
+      else notify('Snapshot berhasil dikirim ke sinkronisasi cloud. Kebijakan RLS tetap menjadi batas otorisasi.', 'success');
     });
     if (window.HPSCloud.pushAuditLog) window.HPSCloud.pushAuditLog({ tenantId:TENANT_ID, ts:isoNow(), user:currentUser.name, role:currentUser.role, action:'Saved HPS snapshot', detail:req.input.productName });
   }
@@ -408,24 +532,58 @@
     else { badge.textContent = 'LOCAL'; badge.className = 'text-[10px] px-2 py-0.5 rounded border border-slate-700 text-slate-400'; }
   }
 
+  function showAccessGate(message) {
+    document.body.classList.add('auth-locked');
+    var gate=el('authAccessGate'); if(gate) gate.classList.remove('hidden');
+    if(message && el('gateError')) el('gateError').textContent=message;
+  }
+
+  function unlockAccessGate() {
+    document.body.classList.remove('auth-locked');
+    var gate=el('authAccessGate'); if(gate) gate.classList.add('hidden');
+    if(el('gateError')) el('gateError').textContent='';
+  }
+
+  function startApp() {
+    if(appStarted) return;
+    appStarted=true;
+    loadLocalLearning();
+    restoreForm();
+    updateRef();
+    bind();
+    recalculate();
+    updateTickers();
+    setTimeout(syncProviders,120);
+  }
+
   function refreshAuth() {
-    if (!window.HPSAuth) return Promise.resolve();
+    if (!window.HPSAuth) { showAccessGate('Layanan autentikasi belum tersedia.'); return Promise.resolve(null); }
     return window.HPSAuth.getSession().then(function (user) {
-      currentUser = user || null;
-      el('authLabel').textContent = currentUser ? (currentUser.name + ' · ' + currentUser.role) : 'Sign In';
+      var valid = !!(user && user.active !== false && user.role && user.role !== 'No Tenant Access');
+      currentUser = valid ? user : null;
+      if (!valid) {
+        showAccessGate(user ? 'Akun terautentikasi tetapi tidak memiliki keanggotaan tenant HPS yang aktif.' : '');
+        return null;
+      }
+      if(el('authLabel')) el('authLabel').textContent = currentUser.name + ' · ' + currentUser.role;
+      unlockAccessGate();
       updateCloudBadge();
-      if (currentUser && window.HPSCloud && window.HPSCloud.pullLearning) {
+      startApp();
+      if (window.HPSCloud && window.HPSCloud.pullLearning) {
         window.HPSCloud.pullLearning().then(function (remote) {
           var byId = {}; learningEvents.concat(remote || []).forEach(function (e) { byId[e.id || (e.category + '|' + e.observedAt + '|' + e.actual)] = e; });
           learningEvents = Object.keys(byId).map(function (k) { return byId[k]; }); saveLocalLearning(); recalculate();
         });
-      } else recalculate();
+      }
+      return currentUser;
+    }).catch(function(){
+      currentUser=null; showAccessGate('Validasi sesi gagal. Silakan masuk kembali.'); return null;
     });
   }
 
   function openAuth() {
     if (currentUser) {
-      if (confirm('Sign out ' + currentUser.name + '?')) window.HPSAuth.signOut().then(function () { currentUser = null; el('authLabel').textContent = 'Sign In'; updateCloudBadge(); notify('Signed out.', 'success'); });
+      if (confirm('Keluar dari akun ' + currentUser.name + '?')) { showAccessGate(''); window.HPSAuth.signOut().then(function () { currentUser = null; window.location.reload(); }); }
       return;
     }
     el('authError').textContent = '';
@@ -434,31 +592,108 @@
 
   function submitAuth() {
     var email = el('authEmail').value.trim(), password = el('authPassword').value;
-    if (!email || !password) { el('authError').textContent = 'Enter email and password.'; return; }
-    el('authSubmit').disabled = true; el('authSubmit').textContent = 'Signing in...';
+    if (!email || !password) { el('authError').textContent = 'Masukkan email dan kata sandi.'; return; }
+    el('authSubmit').disabled = true; el('authSubmit').textContent = 'Sedang masuk...';
     window.HPSAuth.signIn(email, password).then(function (res) {
-      el('authSubmit').disabled = false; el('authSubmit').textContent = 'Sign In';
+      el('authSubmit').disabled = false; el('authSubmit').textContent = 'Masuk';
       if (res.error) { el('authError').textContent = res.error; return; }
       currentUser = res.user; el('authLabel').textContent = currentUser.name + ' · ' + currentUser.role;
-      el('authDialog').close(); updateCloudBadge(); recalculate(); notify('Signed in successfully.', 'success');
+      el('authDialog').close(); unlockAccessGate(); updateCloudBadge(); startApp(); recalculate(); notify('Berhasil masuk.', 'success');
     });
+  }
+
+  function submitGateAuth() {
+    var email=el('gateEmail') ? el('gateEmail').value.trim() : '';
+    var password=el('gatePassword') ? el('gatePassword').value : '';
+    if(!email || !password){ if(el('gateError')) el('gateError').textContent='Masukkan email dan kata sandi.'; return; }
+    var b=el('gateSubmit'); if(b){b.disabled=true;b.innerHTML='<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Memvalidasi...';}
+    if(el('gateError')) el('gateError').textContent='';
+    window.HPSAuth.signIn(email,password).then(function(res){
+      if(b){b.disabled=false;b.innerHTML='<i class="fa-solid fa-right-to-bracket mr-1.5"></i>Masuk';}
+      if(res.error){ if(el('gateError')) el('gateError').textContent=res.error; return; }
+      currentUser=res.user;
+      if(!currentUser || currentUser.active===false || currentUser.role==='No Tenant Access'){
+        if(el('gateError')) el('gateError').textContent='Kredensial valid, tetapi akun tidak memiliki akses tenant HPS yang aktif.';
+        return window.HPSAuth.signOut();
+      }
+      if(el('authLabel')) el('authLabel').textContent=currentUser.name+' · '+currentUser.role;
+      unlockAccessGate();
+      updateCloudBadge();
+      startApp();
+      notify('Kredensial tervalidasi. Selamat datang.', 'success');
+    }).catch(function(e){
+      if(b){b.disabled=false;b.innerHTML='<i class="fa-solid fa-right-to-bracket mr-1.5"></i>Masuk';}
+      if(el('gateError')) el('gateError').textContent='Validasi login gagal: '+(e&&e.message||String(e));
+    });
+  }
+
+  function bindAccessGate(){
+    var b=el('gateSubmit'); if(b&&!b.dataset.bound){b.dataset.bound='true';b.addEventListener('click',submitGateAuth);}
+    ['gateEmail','gatePassword'].forEach(function(id){var x=el(id);if(x&&!x.dataset.bound){x.dataset.bound='true';x.addEventListener('keydown',function(ev){if(ev.key==='Enter')submitGateAuth();});}});
+  }
+
+  function resetHps(){
+    if(!currentUser){showAccessGate('Sesi tidak valid. Silakan masuk kembali.');return;}
+    if(!window.confirm('Reset seluruh nilai perhitungan HPS aktif menjadi 0? Histori yang sudah tersimpan di server tidak akan dihapus.'))return;
+    var zeroIds=['matQty','matUnitPrice','laborDays','laborRate','overheadPercent','profitPercent','principalDiscountValue','historicalPrice','historicalFxRate','benchmark1','benchmark2','benchmark3'];
+    zeroIds.forEach(function(id){var x=el(id);if(x){x.value='0';x.dispatchEvent(new Event('input',{bubbles:true}));x.dispatchEvent(new Event('change',{bubbles:true}));}});
+    var panel=el('categoryCostProfilePanel');
+    if(panel) panel.querySelectorAll('[data-ccu-key]').forEach(function(x){x.value='0';x.dispatchEvent(new Event('input',{bubbles:true}));x.dispatchEvent(new Event('change',{bubbles:true}));});
+    if(el('principalDiscountMode')) el('principalDiscountMode').value='PERCENT';
+    hpsResetMode = true;
+    recalculate();
+    persistForm();
+    ['subtotalMaterial','subtotalLabor','ownerBuildDisplay','hpsNetDisplay','hpsGrossDisplay','threshold80Display'].forEach(function(id){if(el(id))el(id).textContent='Rp0';});
+    if(el('principalDiscountDisplay'))el('principalDiscountDisplay').textContent='-Rp0';
+    if(el('confidenceDisplay'))el('confidenceDisplay').textContent='—';
+    if(el('modelsUsedDisplay'))el('modelsUsedDisplay').textContent='—';
+    notify('HPS aktif telah direset ke 0. Histori server tidak dihapus.', 'success');
+  }
+
+  function isHpsCalculationInput(node) {
+    if (!node) return false;
+    if (node.hasAttribute && node.hasAttribute('data-ccu-key')) return true;
+    var id=node.id||'';
+    return [
+      'projCategory','engineCategory','subCategory','baseCurrency',
+      'matQty','matUnitPrice','laborDays','laborRate',
+      'overheadPercent','profitPercent','taxPercent',
+      'principalDiscountMode','principalDiscountValue',
+      'historicalPrice','historicalFxRate','historicalPurchaseDate','allowBpsCpiProxy',
+      'benchmark1Type','benchmark1','benchmark2Type','benchmark2','benchmark3Type','benchmark3'
+    ].indexOf(id)!==-1;
+  }
+
+  function exitResetMode() {
+    if (!hpsResetMode) return;
+    hpsResetMode=false;
+    persistForm();
   }
 
   function bind() {
     document.querySelectorAll('input, select, textarea').forEach(function (node) {
-      if (node.id && node.id.indexOf('auth') !== 0) node.addEventListener('input', recalculate);
+      if (node.id && node.id.indexOf('auth') !== 0 && node.id.indexOf('gate') !== 0) node.addEventListener('input', recalculate);
     });
+    document.addEventListener('input',function(ev){
+      if(ev&&ev.isTrusted&&isHpsCalculationInput(ev.target)) exitResetMode();
+    },true);
+    document.addEventListener('change',function(ev){
+      if(ev&&ev.isTrusted&&isHpsCalculationInput(ev.target)) { exitResetMode(); recalculate(); }
+    },true);
     el('btnSync').addEventListener('click', syncProviders);
     el('btnExport').addEventListener('click', exportDossier);
     el('btnSave').addEventListener('click', saveSnapshot);
+    if(el('btnResetHps')) el('btnResetHps').addEventListener('click', resetHps);
     el('btnAuth').addEventListener('click', openAuth);
     el('btnRecordOutcome').addEventListener('click', recordOutcome);
     el('authSubmit').addEventListener('click', submitAuth);
   }
 
+  window.HPSAppControl={exitResetMode:exitResetMode,isReset:function(){return hpsResetMode;},recalculate:recalculate};
+
   document.addEventListener('DOMContentLoaded', function () {
-    loadLocalLearning(); restoreForm(); updateRef(); bind(); recalculate(); updateTickers();
+    bindAccessGate();
+    showAccessGate('');
     refreshAuth();
-    setTimeout(syncProviders, 120);
   });
 })();

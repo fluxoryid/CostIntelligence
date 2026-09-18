@@ -10,24 +10,24 @@
 
   var CATEGORY_MAP = {
     goods: [
-      { value: 'IT Hardware', label: 'IT Hardware / Perangkat & Equipment' },
-      { value: 'Data Center', label: 'Data Center Equipment / Infrastructure' },
-      { value: 'Other', label: 'Barang Lainnya / General Goods' }
+      { value: 'IT Hardware', label: 'Perangkat Keras TI / Peralatan' },
+      { value: 'Data Center', label: 'Peralatan / Infrastruktur Pusat Data' },
+      { value: 'Other', label: 'Barang Lainnya' }
     ],
     services: [
-      { value: 'Software/SaaS', label: 'Software / SaaS / Subscription' },
-      { value: 'Manpower/BPO', label: 'Manpower / BPO / Outsourcing' },
-      { value: 'Data Center', label: 'Data Center / Colocation / Cloud Infrastructure' },
-      { value: 'Logistics', label: 'Logistics / Distribution / Warehousing' },
-      { value: 'Payment Terminal Rental', label: 'Payment Terminal Rental / Managed Device' },
-      { value: 'Other', label: 'Jasa Lainnya / Other Services' }
+      { value: 'Software/SaaS', label: 'Perangkat Lunak / SaaS / Langganan' },
+      { value: 'Manpower/BPO', label: 'Tenaga Kerja / BPO / Alih Daya' },
+      { value: 'Data Center', label: 'Pusat Data / Kolokasi / Infrastruktur Cloud' },
+      { value: 'Logistics', label: 'Logistik / Distribusi / Pergudangan' },
+      { value: 'Payment Terminal Rental', label: 'Sewa Terminal Pembayaran / Perangkat Terkelola' },
+      { value: 'Other', label: 'Jasa Lainnya' }
     ],
     consultancy: [
-      { value: 'Other', label: 'Professional / Advisory Consulting (output-based)' },
-      { value: 'Manpower/BPO', label: 'Resource / Man-day Consulting (resource-based)' }
+      { value: 'Other', label: 'Konsultansi Profesional / Advisory (berbasis keluaran)' },
+      { value: 'Manpower/BPO', label: 'Konsultansi Berbasis Sumber Daya / Hari-Orang' }
     ],
     construction: [
-      { value: 'Construction', label: 'Construction / Civil / MEP / Fit-Out' }
+      { value: 'Construction', label: 'Konstruksi / Sipil / MEP / Fit-Out' }
     ]
   };
 
@@ -47,11 +47,58 @@
     ]
   };
 
+  var SUBCATEGORY_LABELS = {
+    'General':'Umum',
+    'Server':'Server',
+    'Storage':'Penyimpanan',
+    'Network Equipment':'Perangkat Jaringan',
+    'Laptop/Desktop':'Laptop/Desktop',
+    'Peripherals':'Periferal',
+    'License':'Lisensi',
+    'Subscription':'Langganan',
+    'Cloud Service':'Layanan Cloud',
+    'Maintenance/Support':'Pemeliharaan/Dukungan',
+    'Outsourced Staffing':'Tenaga Kerja Alih Daya',
+    'Managed Service':'Layanan Terkelola',
+    'Project-Based Labor':'Tenaga Kerja Berbasis Proyek',
+    'Civil Works':'Pekerjaan Sipil',
+    'MEP':'MEP',
+    'Fit-Out':'Fit-Out',
+    'Materials Supply':'Pasokan Material',
+    'Colocation':'Kolokasi',
+    'Cloud Infrastructure':'Infrastruktur Cloud',
+    'DC Equipment':'Peralatan Pusat Data',
+    'Freight Forwarding':'Freight Forwarding',
+    'Trucking/Distribution':'Trucking/Distribusi',
+    'Warehousing':'Pergudangan',
+    'EDC Terminal (Rental)':'Terminal EDC (Sewa)',
+    'mPOS Terminal (Rental)':'Terminal mPOS (Sewa)',
+    'Terminal + SIM Bundle (Rental)':'Paket Terminal + SIM (Sewa)',
+    'General Goods':'Barang Umum',
+    'Spare Parts / Consumables':'Suku Cadang / Barang Habis Pakai',
+    'Office / Facility Equipment':'Peralatan Kantor / Fasilitas',
+    'Other Goods':'Barang Lainnya',
+    'General Services':'Jasa Umum',
+    'Maintenance / Support Service':'Jasa Pemeliharaan / Dukungan',
+    'Professional Service':'Jasa Profesional',
+    'Other Services':'Jasa Lainnya',
+    'Management / Strategy Consulting':'Konsultansi Manajemen / Strategi',
+    'IT / Technology Consulting':'Konsultansi TI / Teknologi',
+    'Audit / Assessment':'Audit / Asesmen',
+    'Project / Program Management':'Manajemen Proyek / Program',
+    'Research / Study':'Riset / Kajian',
+    'Other Professional Consulting':'Konsultansi Profesional Lainnya',
+    'Resource-based Consulting':'Konsultansi Berbasis Sumber Daya',
+    'Expert / Specialist Man-day':'Hari-Orang Ahli / Spesialis',
+    'Project Team / Squad':'Tim Proyek / Squad',
+    'Technical Assistance':'Bantuan Teknis'
+  };
+
   var TYPE_HELP = {
-    goods: 'Kategori dibatasi ke profil biaya barang/peralatan. Rental dan jasa operasional tidak ditampilkan.',
-    services: 'Kategori dibatasi ke jasa operasional, subscription, outsourcing, logistics, data center service, dan managed rental.',
-    consultancy: 'Kategori hardware/product tidak ditampilkan. Pilih output-based advisory atau resource/man-day consulting sesuai pricing model.',
-    construction: 'Kategori dikunci ke Construction agar cost-driver material, tenaga kerja, equipment, dan regional factor tetap relevan.'
+    goods: 'Kategori dibatasi pada profil biaya barang/peralatan. Sewa dan jasa operasional tidak ditampilkan.',
+    services: 'Kategori dibatasi pada jasa operasional, langganan, alih daya, logistik, layanan pusat data, dan sewa terkelola.',
+    consultancy: 'Kategori perangkat keras/produk tidak ditampilkan. Pilih konsultansi berbasis keluaran atau berbasis sumber daya/hari-orang sesuai model harga.',
+    construction: 'Kategori dikunci ke Konstruksi agar faktor biaya material, tenaga kerja, peralatan, dan faktor regional tetap relevan.'
   };
 
   function byId(id) { return document.getElementById(id); }
@@ -85,9 +132,9 @@
     var wrapper = document.createElement('div');
     wrapper.id = 'subCategoryWrapper';
     wrapper.innerHTML =
-      '<label class="block text-slate-400 mb-1 font-medium">Subkategori / Pricing Profile</label>' +
+      '<label class="block text-slate-400 mb-1 font-medium">Subkategori / Profil Harga</label>' +
       '<select id="subCategory" class="field"></select>' +
-      '<p id="subCategoryHelp" class="mt-1 text-[10px] leading-relaxed text-slate-500">Subkategori memperjelas classification dan audit trail; tidak membuat benchmark sintetis.</p>';
+      '<p id="subCategoryHelp" class="mt-1 text-[10px] leading-relaxed text-slate-500">Subkategori memperjelas klasifikasi dan jejak audit; tidak membuat acuan sintetis.</p>';
 
     var grid = cat.parentElement.parentElement;
     if (cat.parentElement.nextSibling) grid.insertBefore(wrapper, cat.parentElement.nextSibling);
@@ -132,7 +179,7 @@
     options.forEach(function (value) {
       var opt = document.createElement('option');
       opt.value = value;
-      opt.textContent = value;
+      opt.textContent = SUBCATEGORY_LABELS[value] || value;
       sub.appendChild(opt);
     });
     sub.value = target || '';
@@ -164,10 +211,10 @@
       return d.name + (typeof d.weight === 'number' ? ' (' + Math.round(d.weight * 100) + '% profile)' : '');
     }).join(' · ');
 
-    box.innerHTML = '<strong class="text-slate-300">Intelligence profile:</strong> ' +
-      (sub && sub.value ? '<span class="text-cyan-300">' + escapeHtml(sub.value) + '</span>. ' : '') +
-      (driverText ? 'Primary cost drivers: ' + escapeHtml(driverText) + '.' : 'Category-specific drivers will be applied by the calculation engine.') +
-      ' Material HPS impact still requires accepted evidence under Source Governance.';
+    box.innerHTML = '<strong class="text-slate-300">Profil inteligensi:</strong> ' +
+      (sub && sub.value ? '<span class="text-cyan-300">' + escapeHtml(SUBCATEGORY_LABELS[sub.value] || sub.value) + '</span>. ' : '') +
+      (driverText ? 'Faktor pendorong biaya utama: ' + escapeHtml(driverText) + '.' : 'Faktor khusus kategori akan diterapkan oleh mesin perhitungan.') +
+      ' Dampak material terhadap HPS tetap memerlukan bukti yang diterima dalam Tata Kelola Sumber.';
   }
 
   function escapeHtml(value) {
@@ -198,7 +245,7 @@
 
     cat.dataset.procurementType = type.value;
     var help = ensureHelp(cat);
-    if (help) help.textContent = (TYPE_HELP[type.value] || '') + ' Kategori menentukan cost-driver profile dan evidence yang relevan.';
+    if (help) help.textContent = (TYPE_HELP[type.value] || '') + ' Kategori menentukan profil faktor biaya dan bukti pendukung yang relevan.';
 
     populateSubcategory();
 

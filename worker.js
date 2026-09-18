@@ -8,8 +8,9 @@ import { onRequestGet as bpsInflationHistory } from './functions/api/bps-inflati
 import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
+import { onRequestGet as inaprocTransactions } from './functions/api/inaproc-transactions.js';
 
-const BUILD_ID = 'production-complete-20260916-v14';
+const BUILD_ID = 'production-2.1-20260919-v1';
 
 function corsHeaders() {
   return {
@@ -30,7 +31,7 @@ function versionHandler() {
   return json({
     service: 'CostIntelligence',
     buildId: BUILD_ID,
-    releaseChannel: 'production-rc',
+    releaseChannel: 'production',
     calculationMode: 'HYBRID_STRICT',
     historicalBpsRoute: true,
     historicalBpsAdapter: 'verified-release-v3-no-store',
@@ -55,7 +56,16 @@ function versionHandler() {
     negotiationIntelligence: true,
     productionHealthMonitor: true,
     guidedProcurementFlow: true,
-    deployedCodeExpectation: 'worker-production-complete-v14'
+    authenticatedAccessGate: true,
+    principalDiscountAdjustment: true,
+    resetHpsControl: true,
+    parameterValueDates: true,
+    bahasaIndonesiaUi: true,
+    inaprocTransactionIntelligence: false,
+    inaprocTransactionAdapterStaged: true,
+    inaprocTransactionAuthRequired: true,
+    lkppOpenDataIntelligence: false,
+    deployedCodeExpectation: 'production-2.1-20260919-v1'
   });
 }
 
@@ -84,6 +94,7 @@ const API_ROUTES = new Map([
   ['/api/lkpp-status', lkppStatus],
   ['/api/esdm-electricity', esdmElectricity],
   ['/api/eia-brent', eiaBrent],
+  ['/api/inaproc-transactions', inaprocTransactions],
 ]);
 
 export default {
