@@ -110,10 +110,11 @@
       var gov = window.HPSSourceEngine
         ? window.HPSSourceEngine.scoreSource(key, {retrievedAt:(meta&&meta.retrievedAt)||isoNow(),publishedDate:publishedDate})
         : {allowed:true,label:key,grade:'ACCEPTABLE'};
+      var hasRequiredInaprocProvenance = key !== 'INAPROC_TRANSACTION' || !!(meta && meta.reference && meta.retrievedAt && meta.priceBasis && meta.priceBasis !== 'UNVERIFIED');
       return {
         value:value,
         sourceKey:key,
-        status:gov.allowed ? 'USER PROVIDED' : 'REJECTED',
+        status:(gov.allowed && hasRequiredInaprocProvenance) ? 'USER PROVIDED' : 'REJECTED',
         source:gov.label,
         observedAt:publishedDate || isoNow(),
         reference:meta&&meta.reference||null,
