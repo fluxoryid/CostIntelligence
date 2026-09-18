@@ -1,8 +1,8 @@
 # HPS Intelligence — Production Implementation Roadmap
 
-Status date: 2026-09-18
+Status date: 2026-09-19
 
-This roadmap separates **code-complete**, **backend-validated**, and **release-complete**. Production 2.0 is promoted only after the remaining browser/runtime UAT and owner release approval are complete.
+This roadmap separates **code-complete**, **backend-validated**, and **release-complete**. Production 2.1 core has now been promoted after owner approval and automated deployment/runtime verification.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -23,7 +23,9 @@ This roadmap separates **code-complete**, **backend-validated**, and **release-c
 
 ## Current release state
 
-The repository remains **Production 2.0 RC** with Worker build `production-complete-20260916-v14`. GitHub Actions now deploys the Cloudflare Worker automatically using scoped repository secrets and performs post-deploy runtime smoke verification.
+The repository is now **Production 2.1** with Worker build `production-2.1-20260919-v1`. GitHub Actions deploys the Cloudflare Worker automatically using scoped repository secrets and performs post-deploy runtime smoke verification.
+
+Production 2.1 adds mandatory validated credential access, parameter value dates for BI-Rate/JISDOR/Kurs Pajak/BPS, Principal/OEM discount adjustment by percentage or nominal IDR, Reset HPS, and Bahasa Indonesia UI. LKPP Open Data exploration is deferred. The Data INAPROC adapter is retained but its production UI remains disabled until an authorized token is validated.
 
 Live Supabase project `HPS_Intelligence` (`bobrilytsufxtqqqgaym`) is now the backend for tenant `t1`. Legacy application tables were migrated into the canonical HPS model and then removed. The live public schema now contains only CostIntelligence/HPS tables. Existing request/version/audit history was preserved during migration.
 
@@ -53,12 +55,12 @@ Cloudflare production deployment has also been runtime-verified. `/api/version` 
 
 Supabase documents automatic daily backup history for Pro/Team/Enterprise projects. For Free-plan projects, Supabase recommends regular off-site logical exports using `supabase db dump`; Storage objects require a separate backup/export process because database backups contain Storage metadata rather than the object contents. Free projects may also be paused after low activity. These are operational residuals to accept or eliminate by upgrading before full production reliance.
 
-## Remaining release gates
+## Remaining operational validation / hardening
 
 1. Execute real-browser UAT for sign-in, private document upload/access, shared request visibility and concurrent team usage.
 2. Establish/accept the Free-plan database + Storage backup procedure, or upgrade Supabase if automatic backup/PITR/non-pausing availability is required.
 3. Complete UAT-01 through UAT-24 and record the results.
-4. Complete the final business/security release approval before changing Production 2.0 RC to Production 2.0.
+4. Complete remaining browser/team UAT and security-owner residual-risk acceptance if required by company policy; these no longer block the owner's Production 2.1 go-live decision.
 
 ## Release principle
 
