@@ -1,5 +1,17 @@
 # Release Notes
 
+## Production 2.1 — Core Hardening & Bahasa Indonesia
+
+- Added explicit value dates/periods for BI-Rate, USD/IDR JISDOR, Kurs Pajak KMK and BPS inflation.
+- Added Principal/OEM discount adjustment with two modes: percentage (%) or nominal IDR. The discount reduces the primary cost component before overhead, profit and tax; the component is never allowed to become negative.
+- Added **Reset HPS** to set the active HPS calculation to zero without deleting previously saved server history.
+- Changed access control so the application shell remains hidden until Supabase validates the login session and confirms active tenant membership.
+- Completed the primary application UI conversion to Bahasa Indonesia with a controlled procurement/finance/IT glossary while retaining established technical acronyms and terms where translation would reduce precision.
+- Preserved server-side RLS/RPC as the authorization boundary; browser controls remain defense-in-depth only.
+- Data INAPROC transaction-history adapter is staged and security-hardened but its production UI remains disabled until an authorized Data Integrator token is configured and validated.
+- LKPP Open Data exploration is intentionally deferred from this production release.
+- Worker build: `production-2.1-20260919-v1`.
+
 ## Production 2.0 RC — Enterprise Multi-User Governance
 
 - Completed procurement hierarchy: Jenis Pengadaan → Kategori → Subkategori / pricing profile.
