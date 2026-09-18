@@ -9,9 +9,8 @@ import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 import { onRequestGet as inaprocTransactions } from './functions/api/inaproc-transactions.js';
-import { onRequestGet as lkppOpenData } from './functions/api/lkpp-open-data.js';
 
-const BUILD_ID = 'pre-release-hardening-20260918';
+const BUILD_ID = 'production-2.1-20260919-v1';
 
 function corsHeaders() {
   return {
@@ -32,7 +31,7 @@ function versionHandler() {
   return json({
     service: 'CostIntelligence',
     buildId: BUILD_ID,
-    releaseChannel: 'pre-release-testing',
+    releaseChannel: 'production',
     calculationMode: 'HYBRID_STRICT',
     historicalBpsRoute: true,
     historicalBpsAdapter: 'verified-release-v3-no-store',
@@ -62,10 +61,11 @@ function versionHandler() {
     resetHpsControl: true,
     parameterValueDates: true,
     bahasaIndonesiaUi: true,
-    inaprocTransactionIntelligence: true,
+    inaprocTransactionIntelligence: false,
+    inaprocTransactionAdapterStaged: true,
     inaprocTransactionAuthRequired: true,
-    lkppOpenDataIntelligence: true,
-    deployedCodeExpectation: 'pre-release-hardening-20260918'
+    lkppOpenDataIntelligence: false,
+    deployedCodeExpectation: 'production-2.1-20260919-v1'
   });
 }
 
@@ -95,7 +95,6 @@ const API_ROUTES = new Map([
   ['/api/esdm-electricity', esdmElectricity],
   ['/api/eia-brent', eiaBrent],
   ['/api/inaproc-transactions', inaprocTransactions],
-  ['/api/lkpp-open-data', lkppOpenData],
 ]);
 
 export default {
