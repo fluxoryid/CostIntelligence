@@ -169,7 +169,9 @@
       reviewerDecision:'COMPARABLE_ACCEPTED'
     };
     saveSelected();
+    if(window.HPSAppControl&&window.HPSAppControl.exitResetMode)window.HPSAppControl.exitResetMode();
     if(input){input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));}
+    if(window.HPSAppControl&&window.HPSAppControl.recalculate)window.HPSAppControl.recalculate();
     renderResults();
     window.alert('Riwayat transaksi INAPROC ditambahkan ke Pembanding '+slot+' setelah normalisasi basis harga.');
   }
