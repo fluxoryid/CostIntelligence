@@ -114,7 +114,55 @@
     'Commercial IDR':'Nilai Komersial IDR',
     'Customs Base':'Dasar Kepabeanan',
     'Duty + Import Tax':'Bea Masuk + Pajak Impor',
-    'Landed Scenario':'Skenario Biaya Landed'
+    'Landed Scenario':'Skenario Biaya Landed',
+    'IT Hardware / Perangkat & Equipment':'Perangkat Keras TI / Peralatan',
+    'Data Center Equipment / Infrastructure':'Peralatan / Infrastruktur Pusat Data',
+    'Barang Lainnya / General Goods':'Barang Lainnya',
+    'Software / SaaS / Subscription':'Perangkat Lunak / SaaS / Langganan',
+    'Manpower / BPO / Outsourcing':'Tenaga Kerja / BPO / Alih Daya',
+    'Data Center / Colocation / Cloud Infrastructure':'Pusat Data / Kolokasi / Infrastruktur Cloud',
+    'Logistics / Distribution / Warehousing':'Logistik / Distribusi / Pergudangan',
+    'Payment Terminal Rental / Managed Device':'Sewa Terminal Pembayaran / Perangkat Terkelola',
+    'Jasa Lainnya / Other Services':'Jasa Lainnya',
+    'Professional / Advisory Consulting (output-based)':'Konsultansi Profesional / Advisory (berbasis keluaran)',
+    'Resource / Man-day Consulting (resource-based)':'Konsultansi Berbasis Sumber Daya / Hari-Orang',
+    'Construction / Civil / MEP / Fit-Out':'Konstruksi / Sipil / MEP / Fit-Out',
+    'General Goods':'Barang Umum',
+    'Spare Parts / Consumables':'Suku Cadang / Barang Habis Pakai',
+    'Office / Facility Equipment':'Peralatan Kantor / Fasilitas',
+    'Other Goods':'Barang Lainnya',
+    'General Services':'Jasa Umum',
+    'Maintenance / Support Service':'Jasa Pemeliharaan / Dukungan',
+    'Managed Service':'Layanan Terkelola',
+    'Professional Service':'Jasa Profesional',
+    'Other Services':'Jasa Lainnya',
+    'Management / Strategy Consulting':'Konsultansi Manajemen / Strategi',
+    'IT / Technology Consulting':'Konsultansi TI / Teknologi',
+    'Audit / Assessment':'Audit / Asesmen',
+    'Project / Program Management':'Manajemen Proyek / Program',
+    'Research / Study':'Riset / Kajian',
+    'Other Professional Consulting':'Konsultansi Profesional Lainnya',
+    'Resource-based Consulting':'Konsultansi Berbasis Sumber Daya',
+    'Expert / Specialist Man-day':'Hari-Orang Ahli / Spesialis',
+    'Project Team / Squad':'Tim Proyek / Squad',
+    'Technical Assistance':'Bantuan Teknis',
+    'PENDING':'MENUNGGU',
+    'MATERIAL':'MATERIAL',
+    'CONTEXT':'KONTEKS',
+    'REJECT':'TOLAK',
+    'DRAFT':'DRAF',
+    'SUBMITTED':'DIAJUKAN',
+    'UNDER_REVIEW':'DALAM PENINJAUAN',
+    'REWORK':'PERBAIKAN',
+    'APPROVED':'DISETUJUI',
+    'REJECTED':'DITOLAK',
+    'LOCKED':'DIKUNCI',
+    'ARCHIVED':'DIARSIPKAN',
+    'PRIMARY':'UTAMA',
+    'SUPPORTING':'PENDUKUNG',
+    'COST DRIVER':'FAKTOR BIAYA',
+    'CONDITIONAL':'BERSYARAT',
+    'INFORMATIONAL':'INFORMASIONAL'
   };
 
   var PHRASES = [
@@ -203,7 +251,58 @@
     [/Primary/g,'Utama'],
     [/Supporting/g,'Pendukung'],
     [/Informational/g,'Informasional'],
-    [/Rejected/g,'Ditolak']
+    [/Rejected/g,'Ditolak'],
+    [/Verified/g,'Terverifikasi'],
+    [/Verification/g,'Verifikasi'],
+    [/Component/g,'Komponen'],
+    [/Components/g,'Komponen'],
+    [/Category/g,'Kategori'],
+    [/Subcategory/g,'Subkategori'],
+    [/Pricing Profile/g,'Profil Harga'],
+    [/Audit Trail/g,'Jejak Audit'],
+    [/Audit trail/g,'Jejak audit'],
+    [/Audit/g,'Audit'],
+    [/Direct cost/g,'Biaya langsung'],
+    [/direct cost/g,'biaya langsung'],
+    [/Direct Cost/g,'Biaya Langsung'],
+    [/Primary component/g,'Komponen utama'],
+    [/primary component/g,'komponen utama'],
+    [/Critical/g,'Kritis'],
+    [/critical/g,'kritis'],
+    [/Coverage/g,'Cakupan'],
+    [/Freshness/g,'Kebaruan'],
+    [/Authority/g,'Otoritas'],
+    [/Price relevance/g,'Relevansi harga'],
+    [/Auditability/g,'Keterlacakan audit'],
+    [/Independence/g,'Independensi'],
+    [/Allowed/g,'Diizinkan'],
+    [/Not allowed/g,'Tidak diizinkan'],
+    [/Required/g,'Wajib'],
+    [/Relevant/g,'Relevan'],
+    [/Optional/g,'Opsional'],
+    [/Active/g,'Aktif'],
+    [/Inactive/g,'Tidak Aktif'],
+    [/Created/g,'Dibuat'],
+    [/Updated/g,'Diperbarui'],
+    [/Uploaded/g,'Diunggah'],
+    [/Expired/g,'Kedaluwarsa'],
+    [/Expires/g,'Kedaluwarsa'],
+    [/Duplicate/g,'Duplikat'],
+    [/Extraction/g,'Ekstraksi'],
+    [/Extracted/g,'Terekstrak'],
+    [/Original/g,'Asli'],
+    [/Private/g,'Privat'],
+    [/Shared/g,'Bersama'],
+    [/Pending approval/g,'Menunggu persetujuan'],
+    [/Approved outcome/g,'Hasil yang disetujui'],
+    [/Actual cost/g,'Biaya aktual'],
+    [/Contract price/g,'Harga kontrak'],
+    [/Initial bid/g,'Penawaran awal'],
+    [/Target range/g,'Rentang target'],
+    [/Discount range/g,'Rentang diskon'],
+    [/Median/g,'Median'],
+    [/Minimum/g,'Minimum'],
+    [/Maximum/g,'Maksimum']
   ];
 
   var PLACEHOLDERS = {
@@ -232,13 +331,15 @@
     if(!node) return;
     if(node.nodeType===3){
       var p=node.parentElement;
-      if(!p || /^(SCRIPT|STYLE|CODE|PRE|OPTION)$/.test(p.tagName)) return;
+      if(!p || /^(SCRIPT|STYLE|CODE|PRE)$/.test(p.tagName)) return;
+      if(p.tagName==='OPTION' && !p.hasAttribute('value')) return;
       var next=translateText(node.nodeValue);
       if(next!==node.nodeValue) node.nodeValue=next;
       return;
     }
     if(node.nodeType!==1) return;
-    if(/^(SCRIPT|STYLE|CODE|PRE|OPTION)$/.test(node.tagName)) return;
+    if(/^(SCRIPT|STYLE|CODE|PRE)$/.test(node.tagName)) return;
+    if(node.tagName==='OPTION' && !node.hasAttribute('value')) return;
     ['placeholder','title','aria-label'].forEach(function(attr){
       if(!node.hasAttribute || !node.hasAttribute(attr)) return;
       var old=node.getAttribute(attr)||'';
