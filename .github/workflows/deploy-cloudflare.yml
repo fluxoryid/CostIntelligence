@@ -52,3 +52,47 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
+
+      - name: Verify deployed runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_URL="https://costintelligence-pages.procurement-e61.workers.dev"
+          EXPECTED_BUILD="production-complete-20260916-v14"
+
+          attempt=1
+          while [ "$attempt" -le 10 ]; do
+            if curl --fail --silent --show-error --max-time 20 "$BASE_URL/api/version" -o /tmp/version.json; then
+              break
+            fi
+            attempt=$((attempt + 1))
+            sleep 3
+          done
+
+          test -s /tmp/version.json
+          node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/version.json","utf8"));if(v.buildId!==process.argv[1]){console.error("Unexpected buildId:",v.buildId);process.exit(1)};console.log("Verified build:",v.buildId,"channel:",v.releaseChannel);' "$EXPECTED_BUILD"
+
+          curl --fail --silent --show-error --max-time 20 "$BASE_URL/api/health" -o /tmp/health.json
+          node -e 'const fs=require("fs");const h=JSON.parse(fs.readFileSync("/tmp/health.json","utf8"));if(h.status!=="healthy"||h.buildId!==process.argv[1]){console.error(h);process.exit(1)};console.log("Health:",h.status,"runtime:",h.runtime);' "$EXPECTED_BUILD"
+
+          curl --fail --silent --show-error --max-time 20 "$BASE_URL/config.js" -o /tmp/config.js
+          grep -q "https://bobrilytsufxtqqqgaym.supabase.co" /tmp/config.js
+          if grep -Eqi "service[_-]?role|secret[_-]?key" /tmp/config.js; then
+            echo "Unsafe private credential marker found in deployed config.js"
+            exit 1
+          fi
+          echo "Verified deployed Supabase project URL and absence of private-key markers."
+
+      - name: Probe official-source API routes
+        shell: bash
+        run: |
+          set -u
+          BASE_URL="https://costintelligence-pages.procurement-e61.workers.dev"
+          for path in             "/api/fx-usd-idr"             "/api/bi-rate"             "/api/kurs-pajak?currency=USD"             "/api/bps-inflation"             "/api/lkpp-status"             "/api/esdm-electricity"
+          do
+            code="$(curl --silent --show-error --max-time 25 -o /tmp/provider.json -w "%{http_code}" "$BASE_URL$path" || true)"
+            echo "$path -> HTTP $code"
+            if [ -s /tmp/provider.json ]; then
+              node -e 'const fs=require("fs");try{const x=JSON.parse(fs.readFileSync("/tmp/provider.json","utf8"));console.log(JSON.stringify({sourceState:x.sourceState||null,source:x.source||x.provider||null,error:x.error||null}).slice(0,800));}catch(e){console.log("non-JSON provider response")}'
+            fi
+          done
