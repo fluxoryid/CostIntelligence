@@ -52,11 +52,6 @@
       auditability: 100, independence: 100, role: 'SUPPORTING_PRICE', allowed: true,
       note: 'Official transaction-history benchmark. Specification, quantity, location, tax, freight, date and commercial scope must be normalized before material HPS use.'
     },
-    LKPP_OPEN_DATA: {
-      label: 'LKPP Open Data — Statistik & Konteks Pasar Pengadaan', authority: 100, priceRelevance: 45,
-      auditability: 100, independence: 100, role: 'CONTEXT', allowed: true,
-      note: 'Official LKPP open data. Aggregate values/counts/indices are context only and must never be interpreted as product unit prices.'
-    },
     PRINCIPAL_QUOTE: {
       label: 'Principal / OEM Official Quotation', authority: 92, priceRelevance: 98,
       auditability: 92, independence: 60, role: 'PRIMARY_PRICE', allowed: true,
@@ -176,7 +171,6 @@
     if (/djbc|ceisa|customs/.test(name)) return 'DJBC_CEISA';
     if (/esdm/.test(name)) return 'ESDM';
     if (/inaproc.*transaction|riwayat transaksi.*inaproc|e-purchasing transaction/.test(name)) return 'INAPROC_TRANSACTION';
-    if (/lkpp open data|data\.lkpp\.go\.id|statistik.*lkpp/.test(name)) return 'LKPP_OPEN_DATA';
     if (/lkpp|inaproc|e-katalog|e-katalog/.test(name)) return 'LKPP';
     if (/principal|oem/.test(name)) return 'PRINCIPAL_QUOTE';
     if (/authorized distributor/.test(name)) return 'AUTH_DISTRIBUTOR_QUOTE';
