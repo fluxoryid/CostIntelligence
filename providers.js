@@ -90,6 +90,7 @@
 
   function bpsEffectiveStatus() {
     var data = get('bps');
+    if (data && data.sourceState === 'CACHED') return 'cached';
     if (data && data.sourceState === 'STALE') return 'stale';
     if (data && data.sourceState === 'UNAVAILABLE') return 'offline';
     return status('bps');
@@ -118,7 +119,7 @@
     if (bps && typeof bps.headlineInflationYoY === 'number') {
       ticker.textContent = Number(bps.headlineInflationYoY).toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2}) + '% YoY' +
         (bps.referencePeriod ? ' · ' + bps.referencePeriod : '') +
-        (st === 'stale' ? ' · STALE' : '');
+        (st === 'cached' ? ' · CACHED' : st === 'stale' ? ' · STALE' : '');
       ticker.title = (bps.source || 'BPS') + (bps.releaseDate ? ' · release ' + bps.releaseDate : '');
     } else {
       ticker.textContent = st === 'connecting' ? 'CONNECTING' : st === 'cached' ? 'CACHED' : st === 'stale' ? 'STALE' : 'UNAVAILABLE';
