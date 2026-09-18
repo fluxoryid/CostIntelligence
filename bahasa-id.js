@@ -272,7 +272,24 @@
     'SUPPORTING':'PENDUKUNG',
     'COST DRIVER':'FAKTOR BIAYA',
     'CONDITIONAL':'BERSYARAT',
-    'INFORMATIONAL':'INFORMASIONAL'
+    'INFORMATIONAL':'INFORMASIONAL',
+    'Procurement User':'Pengguna Pengadaan',
+    'Analyst/Senior':'Analis/Senior',
+    'Manager':'Manajer',
+    'Procurement Head/Admin':'Kepala Pengadaan/Admin',
+    'Auditor':'Auditor',
+    'No Tenant Access':'Tidak Memiliki Akses Tenant',
+    'PRIMARY_PRICE':'HARGA UTAMA',
+    'SUPPORTING_PRICE':'HARGA PENDUKUNG',
+    'COST_DRIVER':'FAKTOR BIAYA',
+    'CONTEXT':'KONTEKS',
+    'DISCOVERY_ONLY':'HANYA PENEMUAN',
+    'VERIFIED PRIMARY':'UTAMA TERVERIFIKASI',
+    'HIGH CONFIDENCE':'KEYAKINAN TINGGI',
+    'ACCEPTABLE':'DAPAT DITERIMA',
+    'SUPPORTING ONLY':'HANYA PENDUKUNG',
+    'USER PROVIDED':'INPUT PENGGUNA',
+    'INTERNAL':'INTERNAL'
   };
 
   var PHRASES = [
@@ -412,7 +429,23 @@
     [/Discount range/g,'Rentang diskon'],
     [/Median/g,'Median'],
     [/Minimum/g,'Minimum'],
-    [/Maximum/g,'Maksimum']
+    [/Maximum/g,'Maksimum'],
+    [/Procurement User/g,'Pengguna Pengadaan'],
+    [/Analyst\/Senior/g,'Analis/Senior'],
+    [/Procurement Head\/Admin/g,'Kepala Pengadaan/Admin'],
+    [/\bManager\b/g,'Manajer'],
+    [/No Tenant Access/g,'Tidak Memiliki Akses Tenant'],
+    [/Vendor/g,'Vendor'],
+    [/Supplier/g,'Penyedia'],
+    [/Principal\/OEM/g,'Principal/OEM'],
+    [/Rate Card/g,'Rate Card'],
+    [/Cloud/g,'Cloud'],
+    [/Dataset/g,'Dataset'],
+    [/Provider/g,'Penyedia Data'],
+    [/Health/g,'Kesehatan'],
+    [/Runtime/g,'Runtime'],
+    [/Target/g,'Target'],
+    [/Range/g,'Rentang']
   ];
 
   var PLACEHOLDERS = {
