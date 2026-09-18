@@ -17,6 +17,17 @@ const MAX_LIMIT = 100;
 export async function onRequestGet(context) {
   const requestUrl = new URL(context.request.url);
   const env = context.env || {};
+
+  const appAuth = await validateAppUser(context.request, env);
+  if (!appAuth.ok) {
+    return json({
+      error: 'app_auth_required',
+      message: appAuth.message || 'Kredensial aplikasi tidak valid.',
+      sourceState: 'UNAVAILABLE',
+      materialUseAllowed: false
+    }, appAuth.status || 401);
+  }
+
   const token = String(env.INAPROC_API_TOKEN || '').trim();
 
   if (!token) {
@@ -153,6 +164,45 @@ export async function onRequestGet(context) {
       materialUseAllowed: false,
       source: 'Data INAPROC API Gateway'
     }, 502);
+  }
+}
+
+async function validateAppUser(request, env) {
+  const auth = String(request.headers.get('authorization') || '').trim();
+  if (!/^Bearer\s+\S+/i.test(auth)) return { ok:false, status:401, message:'Login aplikasi wajib sebelum mengakses Data INAPROC.' };
+
+  const supabaseUrl = String(env.SUPABASE_URL || 'https://bobrilytsufxtqqqgaym.supabase.co').replace(/\/$/, '');
+  const publishableKey = String(env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_K8O1eFVrt2nvl2N3l_q9ow_cRQXFGM2');
+  const bearer = auth.replace(/^Bearer\s+/i, '');
+
+  try {
+    const userRes = await fetch(supabaseUrl + '/auth/v1/user', {
+      headers: { Authorization:'Bearer ' + bearer, apikey:publishableKey }
+    });
+    if (!userRes.ok) return { ok:false, status:401, message:'Sesi Supabase tidak valid atau telah berakhir.' };
+    const user = await userRes.json();
+    if (!user || !user.id) return { ok:false, status:401, message:'Identitas pengguna tidak dapat divalidasi.' };
+
+    const membershipUrl = new URL(supabaseUrl + '/rest/v1/hps_tenant_members');
+    membershipUrl.searchParams.set('select', 'role,active');
+    membershipUrl.searchParams.set('tenant_id', 'eq.t1');
+    membershipUrl.searchParams.set('user_id', 'eq.' + user.id);
+    membershipUrl.searchParams.set('active', 'eq.true');
+    membershipUrl.searchParams.set('limit', '1');
+
+    const memberRes = await fetch(membershipUrl.toString(), {
+      headers: {
+        Authorization:'Bearer ' + bearer,
+        apikey:publishableKey,
+        Accept:'application/json'
+      }
+    });
+    if (!memberRes.ok) return { ok:false, status:403, message:'Keanggotaan tenant HPS tidak dapat diverifikasi.' };
+    const rows = await memberRes.json();
+    if (!Array.isArray(rows) || !rows.length) return { ok:false, status:403, message:'Akun tidak memiliki keanggotaan tenant HPS yang aktif.' };
+    return { ok:true, userId:user.id, role:rows[0].role };
+  } catch (_) {
+    return { ok:false, status:503, message:'Layanan validasi kredensial sedang tidak tersedia.' };
   }
 }
 
