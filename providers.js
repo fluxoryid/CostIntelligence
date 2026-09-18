@@ -26,14 +26,14 @@
   // more specific driver such as JISDOR, UMP/UMK, ESDM tariff, fuel, principal
   // pricing, or a construction/material index.
   var BPS_CATEGORY_POLICY = {
-    'IT Hardware': {material:false, role:'CONTEXT', reason:'Use JISDOR, principal/OEM pricing, semiconductor/component movement, freight and import-cost evidence for material HPS escalation.'},
-    'Software/SaaS': {material:false, role:'CONTEXT', reason:'Use principal list-price/subscription uplift and contract currency. Broad CPI is contextual only.'},
-    'Manpower/BPO': {material:false, role:'CONTEXT', reason:'Use current UMP/UMK/UMSK, statutory benefits and role-specific salary evidence. CPI must not replace the wage decree.'},
-    'Construction': {material:false, role:'CONTEXT', reason:'Use construction/material indices, regional labor and project-specific inputs. General CPI is not a construction price index.'},
-    'Data Center': {material:false, role:'CONTEXT', reason:'Use ESDM electricity/tariff-adjustment parameters, FX, imported equipment and labor. CPI may be an input to the tariff mechanism but should not be applied again to the whole HPS.'},
-    'Logistics': {material:false, role:'CONTEXT', reason:'Use fuel, route, toll, labor and freight evidence. General CPI is a sanity check only.'},
-    'Payment Terminal Rental': {material:false, role:'CONTEXT', reason:'Use FX, OEM terminal price, financing cost, replacement parts, connectivity, logistics and field-service evidence.'},
-    'Other': {material:'conditional', role:'COST_DRIVER', reason:'BPS CPI may be used as a general-price proxy only when no more specific category index exists, the CPI base period is comparable, and a reviewer explicitly accepts the proxy.'}
+    'IT Hardware': {material:false, role:'CONTEXT', reason:'Gunakan JISDOR, harga Principal/OEM, pergerakan komponen/semikonduktor, biaya angkut, dan bukti biaya impor untuk eskalasi HPS yang bersifat material.'},
+    'Software/SaaS': {material:false, role:'CONTEXT', reason:'Gunakan harga daftar Principal/kenaikan langganan dan mata uang kontrak. CPI umum hanya sebagai konteks.'},
+    'Manpower/BPO': {material:false, role:'CONTEXT', reason:'Gunakan UMP/UMK/UMSK terkini, manfaat wajib, dan bukti gaji sesuai peran. CPI tidak boleh menggantikan keputusan upah.'},
+    'Construction': {material:false, role:'CONTEXT', reason:'Gunakan indeks konstruksi/material, tenaga kerja regional, dan input spesifik proyek. CPI umum bukan indeks harga konstruksi.'},
+    'Data Center': {material:false, role:'CONTEXT', reason:'Gunakan parameter tarif listrik ESDM, kurs, peralatan impor, dan tenaga kerja. CPI dapat menjadi salah satu input mekanisme tarif tetapi tidak boleh diterapkan kembali ke seluruh HPS.'},
+    'Logistics': {material:false, role:'CONTEXT', reason:'Gunakan bahan bakar, rute, tol, tenaga kerja, dan bukti biaya angkut. CPI umum hanya sebagai pemeriksaan kewajaran.'},
+    'Payment Terminal Rental': {material:false, role:'CONTEXT', reason:'Gunakan kurs, harga terminal OEM, biaya pendanaan, suku cadang pengganti, konektivitas, logistik, dan layanan lapangan.'},
+    'Other': {material:'conditional', role:'COST_DRIVER', reason:'CPI BPS dapat digunakan sebagai proksi harga umum hanya jika tidak ada indeks kategori yang lebih spesifik, periode dasar CPI dapat dibandingkan, dan peninjau secara eksplisit menerima penggunaan proksi.'}
   };
 
   function cacheGet(key) {
@@ -106,8 +106,9 @@
     if (existing) return existing;
     var wrap = document.createElement('div');
     wrap.className = 'flex items-center gap-1.5 whitespace-nowrap';
-    wrap.innerHTML = '<span class="text-slate-400 font-medium">BPS Inflation:</span>' +
-      '<span class="font-mono-num text-cyan-400 font-semibold" id="tickerBps">—</span>';
+    wrap.innerHTML = '<div><div class="flex items-center gap-1.5"><span class="text-slate-400 font-medium">Inflasi BPS:</span>' +
+      '<span class="font-mono-num text-cyan-400 font-semibold" id="tickerBps">—</span></div>' +
+      '<div id="tickerBpsDate" class="mt-0.5 text-[9px] text-slate-500">Periode nilai: —</div></div>';
     strip.appendChild(wrap);
     return document.getElementById('tickerBps');
   }
@@ -116,13 +117,15 @@
     if (!ticker) return;
     var bps = get('bps');
     var st = bpsEffectiveStatus();
+    var dateEl = document.getElementById('tickerBpsDate');
     if (bps && typeof bps.headlineInflationYoY === 'number') {
       ticker.textContent = Number(bps.headlineInflationYoY).toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2}) + '% YoY' +
-        (bps.referencePeriod ? ' · ' + bps.referencePeriod : '') +
-        (st === 'cached' ? ' · CACHED' : st === 'stale' ? ' · STALE' : '');
-      ticker.title = (bps.source || 'BPS') + (bps.releaseDate ? ' · release ' + bps.releaseDate : '');
+        (st === 'cached' ? ' · TERSIMPAN' : st === 'stale' ? ' · KEDALUWARSA' : '');
+      ticker.title = (bps.source || 'BPS') + (bps.releaseDate ? ' · rilis ' + bps.releaseDate : '');
+      if(dateEl) dateEl.textContent = 'Periode nilai: ' + (bps.referencePeriod || '—') + ' · Rilis: ' + (bps.releaseDate || '—');
     } else {
-      ticker.textContent = st === 'connecting' ? 'CONNECTING' : st === 'cached' ? 'CACHED' : st === 'stale' ? 'STALE' : 'UNAVAILABLE';
+      ticker.textContent = st === 'connecting' ? 'MENGHUBUNGKAN' : st === 'cached' ? 'TERSIMPAN' : st === 'stale' ? 'KEDALUWARSA' : 'TIDAK TERSEDIA';
+      if(dateEl) dateEl.textContent = 'Periode nilai: —';
     }
   }
 
@@ -135,14 +138,14 @@
     panel.className = 'sm:col-span-2 p-3 rounded-lg border border-slate-800 bg-slate-950/50';
     panel.innerHTML =
       '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
-        '<div><label class="block text-slate-400 mb-1 font-medium">Historical Purchase / Contract Date</label>' +
+        '<div><label class="block text-slate-400 mb-1 font-medium">Tanggal Pembelian / Kontrak Historis</label>' +
         '<input type="date" id="historicalPurchaseDate" class="field font-mono-num" /></div>' +
-        '<div><label class="block text-slate-400 mb-1 font-medium">Automatic Historical Intelligence</label>' +
-        '<div id="historicalIntelligenceStatus" class="min-h-[38px] px-3 py-2 rounded border border-slate-800 text-slate-400 bg-slate-900">Enter historical date to retrieve BI JISDOR and BPS CPI baseline.</div></div>' +
+        '<div><label class="block text-slate-400 mb-1 font-medium">Inteligensi Historis Otomatis</label>' +
+        '<div id="historicalIntelligenceStatus" class="min-h-[38px] px-3 py-2 rounded border border-slate-800 text-slate-400 bg-slate-900">Masukkan tanggal historis untuk mengambil baseline JISDOR BI dan CPI BPS.</div></div>' +
       '</div>' +
       '<label class="mt-3 flex items-start gap-2 text-[11px] text-slate-400">' +
         '<input type="checkbox" id="allowBpsCpiProxy" class="mt-0.5" />' +
-        '<span><strong class="text-slate-300">Allow BPS CPI proxy for Model A</strong> — only for Category “Other”, only with comparable 2022=100 CPI periods, and only when no more specific index exists.</span>' +
+        '<span><strong class="text-slate-300">Izinkan proksi CPI BPS untuk Model A</strong> — hanya untuk Kategori “Lainnya”, hanya untuk periode CPI 2022=100 yang dapat dibandingkan, dan hanya jika tidak tersedia indeks yang lebih spesifik.</span>' +
       '</label>' +
       '<div id="historicalPolicyNote" class="mt-2 text-[10px] text-slate-500"></div>';
     grid.insertBefore(panel, grid.children[2] || null);
@@ -291,7 +294,7 @@
 
     var delta = cpiDeltaPct();
     if (delta != null) parts.push('CPI change to current: ' + (delta >= 0 ? '+' : '') + delta.toFixed(2) + '%');
-    box.textContent = parts.length ? parts.join(' · ') : 'Enter historical date to retrieve BI JISDOR and BPS CPI baseline.';
+    box.textContent = parts.length ? parts.join(' · ') : 'Masukkan tanggal historis untuk mengambil baseline JISDOR BI dan CPI BPS.';
 
     var isOther = category && category.value === 'Other';
     var comparable = hb && hb.cpiRatioMaterialUseAllowed && currentCpiComparable();
@@ -351,27 +354,27 @@
       var hb = state.historicalBps.data;
       if (hb && typeof hb.cpi === 'number') {
         sources.push({
-          sourceKey:'BPS', name:'BPS — Historical National CPI Baseline',
+          sourceKey:'BPS', name:'BPS — Baseline CPI Nasional Historis',
           status:state.historicalBps.status === 'cached' ? 'CACHED' : 'LIVE',
           value:hb.cpi, unit:'CPI index', publishedDate:hb.releaseDate || null,
           retrievedAt:hb.retrievedAt || new Date().toISOString(), freshness:'Fresh', trustScore:100,
           sourceMode:hb.sourceMode || null, sourceUrl:hb.sourceUrl || null,
           evidenceRole:'OFFICIAL_DOMESTIC_CPI_HISTORICAL_BASELINE',
           materialUseAllowed:cpiProxyAccepted() && hb.cpiRatioMaterialUseAllowed === true,
-          note:'Historical CPI baseline aligned to ' + (hb.referencePeriod || hb.requestedReferencePeriod || 'selected historical month') + '. CPI ratio is material only when explicitly accepted for Category Other.'
+          note:'Baseline CPI historis diselaraskan dengan ' + (hb.referencePeriod || hb.requestedReferencePeriod || 'bulan historis yang dipilih') + '. CPI ratio is material only when explicitly accepted for Category Other.'
         });
       }
 
       var hf = state.historicalFx.data;
       if (hf && typeof hf.rate === 'number') {
         sources.push({
-          sourceKey:'BI_JISDOR', name:'Bank Indonesia — Historical USD/IDR JISDOR Baseline',
+          sourceKey:'BI_JISDOR', name:'Bank Indonesia — Baseline JISDOR USD/IDR Historis',
           status:state.historicalFx.status === 'cached' ? 'CACHED' : 'LIVE',
           value:hf.rate, unit:'IDR per USD', publishedDate:hf.date || null,
           retrievedAt:hf.retrievedAt || new Date().toISOString(), freshness:'Fresh', trustScore:100,
           sourceMode:hf.sourceMode, evidenceRole:hf.evidenceRole,
           materialUseAllowed:true,
-          note:'Automatically retrieved historical JISDOR on or immediately before the selected historical purchase date.'
+          note:'JISDOR historis diambil otomatis pada atau tepat sebelum tanggal pembelian historis yang dipilih.'
         });
       }
       return sources;
