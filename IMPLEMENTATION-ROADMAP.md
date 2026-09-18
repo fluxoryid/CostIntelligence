@@ -8,7 +8,7 @@ This roadmap separates **code-complete**, **backend-validated**, and **release-c
 |---|---|---|
 | 1 | Strict HPS calculation baseline; no synthetic production evidence; Model A/B/C/D guardrails | DONE |
 | 2 | Source Reliability Engine, evidence tiers, LIVE/CACHED/STALE/UNAVAILABLE governance | DONE |
-| 3 | Official macro/source adapters: BI/JISDOR, Kurs Pajak, BPS, ESDM, LKPP, World Bank; historical BI/BPS baseline | DONE |
+| 3 | Official macro/source adapters: BI/JISDOR, Kurs Pajak, BPS, ESDM and World Bank; historical BI/BPS baseline. Legacy LKPP status fallback is retained only for compatibility; LKPP Open Data / price intelligence is deferred from Production 2.1. | DONE |
 | 4 | Procurement type → category dependency and guided procurement flow | DONE |
 | 5 | Category → subcategory / pricing profile intelligence | DONE |
 | 6 | Category-dependent cost-component forms and category evidence requirements | DONE |
@@ -49,7 +49,7 @@ Security Advisor was re-run. The three remaining `authenticated_security_definer
 
 A transactional database UAT was run with rollback: Analyst maker → Manager review/approve → Procurement Head lock succeeded; maker self-review was rejected; a `BLOCKED` evidence request could not be submitted; governed learning approval succeeded for Manager and was denied to Analyst; anonymous access and cross-tenant isolation were also verified. No UAT records remained afterward.
 
-Cloudflare production deployment has also been runtime-verified. `/api/version` returns build `production-complete-20260916-v14`, `/api/health` returns `healthy`, and deployed `config.js` points to the intended Supabase project with no private Supabase credential markers. Provider smoke checks return HTTP 200 for BI JISDOR, BI-Rate, Kurs Pajak, BPS, LKPP and ESDM. BPS currently uses a provenance-bound `CACHED` last-known-good snapshot of the official 1 September 2026 BRS because both the BPS WebAPI and public page block the Cloudflare edge; the snapshot is explicitly non-synthetic and becomes `STALE` after 30 September 2026.
+Cloudflare production deployment has also been runtime-verified. `/api/version` returns build `production-2.1-20260919-v1` with release channel `production`, `/api/health` returns `healthy`, and deployed `config.js` points to the intended Supabase project with no private Supabase credential markers. Provider smoke checks return HTTP 200 for BI JISDOR, BI-Rate, Kurs Pajak, BPS, ESDM and the retained legacy LKPP status fallback. The LKPP status fallback is not used as Production 2.1 product-price intelligence and does not re-open the deferred LKPP Open Data scope. BPS currently uses a provenance-bound `CACHED` last-known-good snapshot of the official 1 September 2026 BRS because both the BPS WebAPI and public page block the Cloudflare edge; the snapshot is explicitly non-synthetic and becomes `STALE` after 30 September 2026.
 
 ## Free-plan operational constraint
 
