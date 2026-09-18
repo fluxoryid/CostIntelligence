@@ -22,6 +22,7 @@ window.HPS_CONFIG = {
     'governance-extensions.js',
     'procurement-ux.js',
     'category-cost-ux.js',
+    'lkpp-open-data.js',
     'inaproc-intelligence.js',
     'evidence-component-ux.js',
     'document-hub.js',
