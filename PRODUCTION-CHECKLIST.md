@@ -13,12 +13,14 @@
 - [x] BI non-USD reference normalization implemented for supported currencies.
 - [x] Kemenkeu Kurs Pajak remains distinct from commercial FX and is used for customs/tax scenarios.
 - [x] BPS CPI is category-gated and cannot universally escalate HPS.
+- [x] BPS Cloudflare-edge resilience uses a provenance-bound official BRS last-known-good snapshot when both official live routes are blocked; state is `CACHED`, never `LIVE`, and expires to `STALE` after 30 September 2026.
 - [x] LKPP catalog fallback is treated as catalog/status evidence rather than an inferred product price.
 - [x] ESDM evidence is regulation/cost-driver evidence and does not invent one generic tariff.
 - [x] Governed learning consumes only server-approved outcomes; new outcomes are pending by default.
 - [x] Automated Node test suite and GitHub CI enabled.
 - [x] Security model, UAT plan and operations/recovery runbook added.
 - [x] `/api/health` and `/api/version` identify runtime health and deployment build.
+- [x] Production provider smoke checks run after deployment; BI JISDOR, BI-Rate, Kurs Pajak, BPS, LKPP and ESDM routes currently return HTTP 200.
 - [x] Browser configuration contains only the production Supabase URL + publishable key; no service-role credential.
 
 ## Live Supabase backend — completed / validated
@@ -63,8 +65,8 @@
 
 ## Release validation
 
-- [ ] Cloudflare production deployment returns Worker build `production-complete-20260916-v14`.
-- [ ] Deployed `config.js` points to `https://bobrilytsufxtqqqgaym.supabase.co` and uses a publishable key only.
+- [x] Cloudflare production deployment returns Worker build `production-complete-20260916-v14` and post-deploy `/api/version` verification passes.
+- [x] Deployed `config.js` points to `https://bobrilytsufxtqqqgaym.supabase.co` and uses a publishable key only; post-deploy smoke test finds no private Supabase credential markers.
 - [ ] In-app Production Readiness Monitor required checks pass.
 - [ ] UAT-01 through UAT-24 completed and recorded.
 - [ ] Owner accepts the Free-plan backup/availability residuals or upgrades the project before final production reliance.
