@@ -9,6 +9,7 @@ import { onRequestGet as lkppStatus } from './functions/api/lkpp-status.js';
 import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricity.js';
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 import { onRequestGet as inaprocTransactions } from './functions/api/inaproc-transactions.js';
+import { onRequestGet as lkppOpenData } from './functions/api/lkpp-open-data.js';
 
 const BUILD_ID = 'pre-release-hardening-20260918';
 
@@ -63,6 +64,7 @@ function versionHandler() {
     bahasaIndonesiaUi: true,
     inaprocTransactionIntelligence: true,
     inaprocTransactionAuthRequired: true,
+    lkppOpenDataIntelligence: true,
     deployedCodeExpectation: 'pre-release-hardening-20260918'
   });
 }
@@ -93,6 +95,7 @@ const API_ROUTES = new Map([
   ['/api/esdm-electricity', esdmElectricity],
   ['/api/eia-brent', eiaBrent],
   ['/api/inaproc-transactions', inaprocTransactions],
+  ['/api/lkpp-open-data', lkppOpenData],
 ]);
 
 export default {
