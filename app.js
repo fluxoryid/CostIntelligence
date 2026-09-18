@@ -15,6 +15,7 @@
   var latestSnapshot = null;
   var syncInFlight = false;
   var appStarted = false;
+  var hpsResetMode = false;
 
   function el(id) { return document.getElementById(id); }
   function num(id) { var n = Number(el(id) && el(id).value); return isFinite(n) ? n : 0; }
@@ -162,6 +163,19 @@
 
     var req = calculateStrict(buildRequest(build));
     var netHps = req.hps.recommended;
+    if (hpsResetMode) {
+      Object.keys(req.hps.models || {}).forEach(function(k){
+        req.hps.models[k] = { value:null, status:'UNAVAILABLE', reason:'HPS direset oleh pengguna.' };
+      });
+      req.hps.recommended = 0;
+      req.hps.low = 0;
+      req.hps.high = 0;
+      req.hps.confidence = 0;
+      req.hps.confidenceLabel = 'Direset';
+      req.runtimeMode = 'BLOCKED';
+      req.runtimeReason = 'HPS aktif telah direset ke 0. Masukkan nilai biaya/evidence baru untuk memulai perhitungan.';
+      netHps = 0;
+    }
     var grossHps = netHps == null ? null : netHps * (1 + num('taxPercent') / 100);
     latestSnapshot = buildSnapshot(req, build, grossHps);
 
@@ -415,7 +429,7 @@
 
   function persistForm() {
     var ids = ['projName','projCategory','engineCategory','budgetLimit','baseCurrency','projDescription','matQty','matUnitPrice','laborDays','laborRate','overheadPercent','profitPercent','taxPercent','principalDiscountMode','principalDiscountValue','historicalPrice','historicalFxRate','benchmark1Type','benchmark1','benchmark2Type','benchmark2','benchmark3Type','benchmark3','v1Name','v1Price','v2Name','v2Price'];
-    var data = { requestId:currentRequestId, fields:{} };
+    var data = { requestId:currentRequestId, resetToZero:hpsResetMode, fields:{} };
     ids.forEach(function (id) { if (el(id)) data.fields[id] = el(id).value; });
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
   }
@@ -425,6 +439,7 @@
       var data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (!data || !data.fields) return;
       currentRequestId = data.requestId || currentRequestId;
+      hpsResetMode = data.resetToZero === true;
       Object.keys(data.fields).forEach(function (id) { if (el(id)) el(id).value = data.fields[id]; });
     } catch (e) {}
     updateRef();
@@ -579,7 +594,9 @@
     var panel=el('categoryCostProfilePanel');
     if(panel) panel.querySelectorAll('[data-ccu-key]').forEach(function(x){x.value='0';x.dispatchEvent(new Event('input',{bubbles:true}));x.dispatchEvent(new Event('change',{bubbles:true}));});
     if(el('principalDiscountMode')) el('principalDiscountMode').value='PERCENT';
+    hpsResetMode = true;
     recalculate();
+    persistForm();
     ['subtotalMaterial','subtotalLabor','ownerBuildDisplay','hpsNetDisplay','hpsGrossDisplay','threshold80Display'].forEach(function(id){if(el(id))el(id).textContent='Rp0';});
     if(el('principalDiscountDisplay'))el('principalDiscountDisplay').textContent='-Rp0';
     if(el('confidenceDisplay'))el('confidenceDisplay').textContent='—';
@@ -589,7 +606,10 @@
 
   function bind() {
     document.querySelectorAll('input, select, textarea').forEach(function (node) {
-      if (node.id && node.id.indexOf('auth') !== 0) node.addEventListener('input', recalculate);
+      if (node.id && node.id.indexOf('auth') !== 0 && node.id.indexOf('gate') !== 0) node.addEventListener('input', function(ev) {
+        if (ev && ev.isTrusted) hpsResetMode = false;
+        recalculate();
+      });
     });
     el('btnSync').addEventListener('click', syncProviders);
     el('btnExport').addEventListener('click', exportDossier);
