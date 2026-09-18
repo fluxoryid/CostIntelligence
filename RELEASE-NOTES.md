@@ -14,14 +14,15 @@
 - Added private Document Evidence Hub for Contract/PO/Invoice/Quotation/BOQ/SOW/rate cards with SHA-256 duplicate control, reference versioning, expiry metadata and safe PDF/Office text extraction.
 - Added official BI multi-currency normalization and date-aligned historical FX. USD uses JISDOR; supported non-USD currencies use BI reference rates.
 - Kept Kemenkeu Kurs Pajak separate for customs/tax conversion and added a transparent landed-cost scenario with explicit user-verified duty/tax inputs.
-- Updated provider provenance: BI wsKursBI is primary for JISDOR/history; BPS public official release is the production fallback when BPS WebAPI is unavailable from the Cloudflare edge.
+- Updated provider provenance: BI wsKursBI is primary for JISDOR/history. When BPS WebAPI/public pages are blocked from the Cloudflare edge, the runtime now falls back only to a provenance-bound last-known-good snapshot of the verified official BPS BRS; it is explicitly `CACHED`, non-synthetic, and becomes `STALE` after its validity window.
 - Added governed learning: new negotiation outcomes remain excluded until Manager/Head approval. Model D consumes only outcomes returned by the server as approved.
 - Added historical-outcome negotiation decision support with percentile range and HPS cap; it does not auto-select a supplier or auto-approve a negotiation.
 - Added `/api/health`, final build identity, automated Node tests, GitHub CI, security model, operations/recovery runbook and 24-case UAT plan.
 - Transactional database UAT passed the Analyst-maker → Manager-review/approve → Head-lock lifecycle, maker self-review rejection, evidence-gate rejection and learning-approval RBAC. The UAT transaction was rolled back with no production test records retained.
-- Supabase Security/Performance Advisors were reviewed: material RLS/performance findings were remediated. Remaining Auth hardening item is leaked-password protection, which is currently disabled.
+- Supabase Security/Performance Advisors were reviewed: material RLS/performance findings were remediated. The Free-plan leaked-password-protection limitation is documented as an accepted residual control; password complexity and current-password-on-change controls are enabled.
 - Cloudflare remains stateless; Supabase is the shared multi-user system of record.
-- Production 2.0 RC remains pending final runtime/browser UAT, final team-roster reconciliation, leaked-password-protection enablement and business/security release approval.
+- Cloudflare Worker deployment is now automated through GitHub Actions with scoped Cloudflare repository secrets. Post-deploy verification confirms the expected Worker build, healthy runtime, intended Supabase project URL, absence of private Supabase credentials, and successful smoke responses from BI JISDOR, BI-Rate, Kurs Pajak, BPS, LKPP and ESDM.
+- Production 2.0 RC now remains pending only real-browser/team UAT, Free-plan backup/availability acceptance or upgrade, and final business/security release approval.
 
 ## Production Fresh 1.1 — Aqua/Royal Theme
 
