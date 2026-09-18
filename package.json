@@ -1,8 +1,8 @@
 {
   "name": "costintelligence",
-  "version": "2.0.0-rc.1",
+  "version": "2.1.0",
   "private": true,
-  "description": "HPS Intelligence production deployment for Cloudflare Workers",
+  "description": "HPS Intelligence Production 2.1 deployment for Cloudflare Workers",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "check": "npm test",
