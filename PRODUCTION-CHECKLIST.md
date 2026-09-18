@@ -1,4 +1,17 @@
-# HPS Intelligence — Production 2.0 RC Checklist
+# HPS Intelligence — Production 2.1 Checklist
+
+## Production 2.1 core additions — completed
+
+- [x] BI-Rate value date displayed.
+- [x] USD/IDR JISDOR value date displayed.
+- [x] Kurs Pajak KMK effective period displayed.
+- [x] BPS inflation reference period and release date displayed.
+- [x] Principal/OEM discount supports percentage or nominal IDR and is included in HPS calculation.
+- [x] Reset HPS sets the active HPS calculation state to zero without deleting server history.
+- [x] Application shell is credential-gated until Supabase authentication and active tenant membership are validated.
+- [x] Primary UI translated to Bahasa Indonesia with controlled procurement terminology.
+- [x] LKPP Open Data integration deferred from this release by owner direction.
+- [x] Data INAPROC adapter remains staged with production UI disabled pending authorized token validation.
 
 ## Code / build — completed
 
@@ -65,9 +78,10 @@
 
 ## Release validation
 
-- [x] Cloudflare production deployment returns Worker build `production-complete-20260916-v14` and post-deploy `/api/version` verification passes.
+- [ ] Cloudflare production deployment returns Worker build `production-2.1-20260919-v1` and post-deploy `/api/version` verification passes.
 - [x] Deployed `config.js` points to `https://bobrilytsufxtqqqgaym.supabase.co` and uses a publishable key only; post-deploy smoke test finds no private Supabase credential markers.
 - [ ] In-app Production Readiness Monitor required checks pass.
 - [ ] UAT-01 through UAT-24 completed and recorded.
 - [ ] Owner accepts the Free-plan backup/availability residuals or upgrades the project before final production reliance.
-- [ ] Business owner/security owner signs off Production 2.0 release.
+- [x] Business owner authorized promotion to Production 2.1 on 19 Sep 2026.
+- [ ] Security owner sign-off / residual-risk acceptance remains an operational governance item if required by company policy.
