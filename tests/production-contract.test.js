@@ -36,3 +36,14 @@ test('production extensions are all loaded', () => {
     assert.ok(cfg.includes(f),f);
   }
 });
+
+
+test('BPS edge fallback is a provenance-bound official cache, never synthetic', () => {
+  const bps = read('functions/api/bps-inflation.js');
+  assert.ok(bps.includes('VERIFIED_OFFICIAL_RELEASE_LKG'));
+  assert.ok(bps.includes("sourceMode: 'VERIFIED_OFFICIAL_BPS_RELEASE_LKG'"));
+  assert.ok(bps.includes("sourceState: sourceState"));
+  assert.ok(bps.includes("synthetic: false"));
+  assert.ok(bps.includes("aiGenerated: false"));
+  assert.ok(bps.includes("validThrough: '2026-09-30'"));
+});
