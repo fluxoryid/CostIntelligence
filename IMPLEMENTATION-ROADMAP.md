@@ -1,6 +1,6 @@
 # HPS Intelligence — Production Implementation Roadmap
 
-Status date: 2026-09-16
+Status date: 2026-09-18
 
 This roadmap separates **code-complete**, **backend-validated**, and **release-complete**. Production 2.0 is promoted only after the remaining browser/runtime UAT and owner release approval are complete.
 
@@ -17,13 +17,13 @@ This roadmap separates **code-complete**, **backend-validated**, and **release-c
 | 9 | Approval workflow, RBAC, maker-checker, reviewer comments, immutable approved versions, rejection/rework loop | BACKEND VALIDATED — transactional maker/checker, evidence-gate, approve and lock UAT passed |
 | 10 | Supabase production backend: multi-tenant data model, Auth, RLS, cloud persistence, audit-event ledger, private Storage and user administration | DONE — existing `HPS_Intelligence` project migrated, secured and connected |
 | 11 | Document Evidence Hub: Contract/PO/Invoice/Quotation/BOQ/SOW/rate-card upload, safe extraction, SHA-256 duplicate/version/expiry controls and component linking | LIVE BACKEND READY — private Storage provisioned; browser upload/access UAT pending |
-| 12 | Advanced Procurement Intelligence: official BI multi-currency/current/historical normalization and transparent landed-cost/import scenario with explicit duty/tax inputs | CODE COMPLETE — production Worker runtime verification pending |
+| 12 | Advanced Procurement Intelligence: official BI multi-currency/current/historical normalization and transparent landed-cost/import scenario with explicit duty/tax inputs | DONE — production Worker runtime verified |
 | 13 | Governed Learning & Negotiation Intelligence: approved-outcome learning, category maturity, negotiation range/target and human approval queue | BACKEND VALIDATED — Manager approval and Analyst denial UAT passed; browser UAT pending |
-| 14 | Production Hardening & Release: automated tests, security model, monitoring/health, backup/restore runbook, UAT plan and release controls | BACKEND/CI VALIDATED — runtime/five-user UAT and final release approval pending |
+| 14 | Production Hardening & Release: automated tests, security model, monitoring/health, backup/restore runbook, UAT plan and release controls | RUNTIME/BACKEND/CI VALIDATED — real-browser/five-user UAT, backup acceptance and final release approval pending |
 
 ## Current release state
 
-The repository remains **Production 2.0 RC** with Worker build `production-complete-20260916-v14`.
+The repository remains **Production 2.0 RC** with Worker build `production-complete-20260916-v14`. GitHub Actions now deploys the Cloudflare Worker automatically using scoped repository secrets and performs post-deploy runtime smoke verification.
 
 Live Supabase project `HPS_Intelligence` (`bobrilytsufxtqqqgaym`) is now the backend for tenant `t1`. Legacy application tables were migrated into the canonical HPS model and then removed. The live public schema now contains only CostIntelligence/HPS tables. Existing request/version/audit history was preserved during migration.
 
@@ -47,17 +47,18 @@ Security Advisor was re-run. The three remaining `authenticated_security_definer
 
 A transactional database UAT was run with rollback: Analyst maker → Manager review/approve → Procurement Head lock succeeded; maker self-review was rejected; a `BLOCKED` evidence request could not be submitted; governed learning approval succeeded for Manager and was denied to Analyst; anonymous access and cross-tenant isolation were also verified. No UAT records remained afterward.
 
+Cloudflare production deployment has also been runtime-verified. `/api/version` returns build `production-complete-20260916-v14`, `/api/health` returns `healthy`, and deployed `config.js` points to the intended Supabase project with no private Supabase credential markers. Provider smoke checks return HTTP 200 for BI JISDOR, BI-Rate, Kurs Pajak, BPS, LKPP and ESDM. BPS currently uses a provenance-bound `CACHED` last-known-good snapshot of the official 1 September 2026 BRS because both the BPS WebAPI and public page block the Cloudflare edge; the snapshot is explicitly non-synthetic and becomes `STALE` after 30 September 2026.
+
 ## Free-plan operational constraint
 
 Supabase documents automatic daily backup history for Pro/Team/Enterprise projects. For Free-plan projects, Supabase recommends regular off-site logical exports using `supabase db dump`; Storage objects require a separate backup/export process because database backups contain Storage metadata rather than the object contents. Free projects may also be paused after low activity. These are operational residuals to accept or eliminate by upgrading before full production reliance.
 
 ## Remaining release gates
 
-1. Verify the deployed Cloudflare Worker serves build `production-complete-20260916-v14` and the new Supabase browser configuration.
-2. Execute real-browser UAT for sign-in, private document upload/access, shared request visibility and concurrent team usage.
-3. Establish/accept the Free-plan database + Storage backup procedure, or upgrade Supabase if automatic backup/PITR/non-pausing availability is required.
-4. Complete UAT-01 through UAT-24 and record the results.
-5. Complete the final business/security release approval before changing Production 2.0 RC to Production 2.0.
+1. Execute real-browser UAT for sign-in, private document upload/access, shared request visibility and concurrent team usage.
+2. Establish/accept the Free-plan database + Storage backup procedure, or upgrade Supabase if automatic backup/PITR/non-pausing availability is required.
+3. Complete UAT-01 through UAT-24 and record the results.
+4. Complete the final business/security release approval before changing Production 2.0 RC to Production 2.0.
 
 ## Release principle
 
