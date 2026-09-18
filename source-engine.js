@@ -47,6 +47,11 @@
       auditability: 98, independence: 98, role: 'SUPPORTING_PRICE', allowed: true,
       note: 'Strong procurement benchmark, but listed/catalog price is not automatically a negotiated transaction price.'
     },
+    INAPROC_TRANSACTION: {
+      label: 'Data INAPROC — Riwayat Transaksi E-Purchasing', authority: 100, priceRelevance: 86,
+      auditability: 100, independence: 100, role: 'SUPPORTING_PRICE', allowed: true,
+      note: 'Official transaction-history benchmark. Specification, quantity, location, tax, freight, date and commercial scope must be normalized before material HPS use.'
+    },
     PRINCIPAL_QUOTE: {
       label: 'Principal / OEM Official Quotation', authority: 92, priceRelevance: 98,
       auditability: 92, independence: 60, role: 'PRIMARY_PRICE', allowed: true,
@@ -165,6 +170,7 @@
     if (/ump|umk|umsk|kemnaker|jdih pemprov/.test(name)) return 'UMP_JDIH';
     if (/djbc|ceisa|customs/.test(name)) return 'DJBC_CEISA';
     if (/esdm/.test(name)) return 'ESDM';
+    if (/inaproc.*transaction|riwayat transaksi.*inaproc|e-purchasing transaction/.test(name)) return 'INAPROC_TRANSACTION';
     if (/lkpp|inaproc|e-katalog|e-katalog/.test(name)) return 'LKPP';
     if (/principal|oem/.test(name)) return 'PRINCIPAL_QUOTE';
     if (/authorized distributor/.test(name)) return 'AUTH_DISTRIBUTOR_QUOTE';
