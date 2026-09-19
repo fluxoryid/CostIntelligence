@@ -567,16 +567,25 @@
       if(el('authLabel')) el('authLabel').textContent = currentUser.name + ' · ' + currentUser.role;
       unlockAccessGate();
       updateCloudBadge();
-      startApp();
+      try {
+        startApp();
+      } catch (e) {
+        console.error('HPS application startup failed', e);
+        showAccessGate('Sesi valid, tetapi aplikasi gagal dimulai: ' + (e && e.message ? e.message : String(e)));
+        return currentUser;
+      }
       if (window.HPSCloud && window.HPSCloud.pullLearning) {
         window.HPSCloud.pullLearning().then(function (remote) {
           var byId = {}; learningEvents.concat(remote || []).forEach(function (e) { byId[e.id || (e.category + '|' + e.observedAt + '|' + e.actual)] = e; });
           learningEvents = Object.keys(byId).map(function (k) { return byId[k]; }); saveLocalLearning(); recalculate();
-        });
+        }).catch(function(e){ console.warn('Learning sync skipped:', e && e.message ? e.message : e); });
       }
       return currentUser;
-    }).catch(function(){
-      currentUser=null; showAccessGate('Validasi sesi gagal. Silakan masuk kembali.'); return null;
+    }).catch(function(e){
+      currentUser=null;
+      console.error('HPS session validation failed', e);
+      showAccessGate('Validasi sesi gagal. Silakan masuk kembali.');
+      return null;
     });
   }
 
