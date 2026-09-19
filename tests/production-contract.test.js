@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v11';
+  const id = 'production-2.1-20260919-v12';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -244,4 +244,19 @@ test('Reset HPS zeroes all active numeric parameters and preserves historical ou
   assert.ok(app.includes("hpsNetDisplay"));
   assert.ok(app.includes("hpsGrossDisplay"));
   assert.ok(!app.includes("'actualOutcomePrice','actualInvoicePrice'"));
+});
+
+
+test('Supabase is the only persistent application data store', () => {
+  const app = read('app.js');
+  const workflow = read('workflow-rbac.js');
+  const worker = read('worker.js');
+
+  assert.ok(!app.includes('localStorage.getItem('));
+  assert.ok(!app.includes('localStorage.setItem('));
+  assert.ok(!workflow.includes('localStorage.getItem('));
+  assert.ok(!workflow.includes('localStorage.setItem('));
+  assert.ok(app.includes("localStorage.removeItem(k)"));
+  assert.ok(worker.includes('stateless: true'));
+  assert.ok(worker.includes('supabaseOnlyPersistence: true'));
 });
