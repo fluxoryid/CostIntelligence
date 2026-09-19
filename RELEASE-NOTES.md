@@ -9,8 +9,8 @@
 - Completed the primary application UI conversion to Bahasa Indonesia with a controlled procurement/finance/IT glossary while retaining established technical acronyms and terms where translation would reduce precision.
 - Preserved server-side RLS/RPC as the authorization boundary; browser controls remain defense-in-depth only.
 - Data INAPROC transaction-history adapter is staged and security-hardened but its production UI remains disabled until an authorized Data Integrator token is configured and validated.
-- LKPP Open Data exploration is intentionally deferred from this production release.
-- Worker build: `production-2.1-20260919-v1`.
+- LKPP Open Data exploration is intentionally deferred from this production release; it is excluded from the active readiness monitor, UAT provider dependency and deployment provider smoke probes.\n- Hardened audit integrity: browser clients no longer insert audit rows directly; authoritative workflow audit events are emitted by server-side RPCs, while tenant users retain read-only audit access.
+- Worker build: `production-2.1-20260919-v2`.
 
 ## Production 2.0 RC — Enterprise Multi-User Governance
 
