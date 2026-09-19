@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v4';
+  const id = 'production-2.1-20260919-v5';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -154,4 +154,21 @@ test('Production UAT Console is build-scoped, append-only and tenant governed', 
   assert.ok(sql.includes('alter table public.hps_uat_runs enable row level security'));
   assert.ok(sql.includes('alter table public.hps_uat_attempts enable row level security'));
   assert.ok(sql.includes("grant update(status,signoff_note) on table public.hps_uat_runs to authenticated"));
+});
+
+
+test('password recovery flow is wired to production Supabase Auth', () => {
+  const html = read('index.html');
+  const auth = read('auth-sync.js');
+  const recovery = read('password-recovery.js');
+  const worker = read('worker.js');
+  assert.ok(html.includes('id="gateForgotPassword"'));
+  assert.ok(html.includes('id="passwordResetDialog"'));
+  assert.ok(html.includes('id="passwordRecoveryDialog"'));
+  assert.ok(html.includes('password-recovery.js'));
+  assert.ok(auth.includes('resetPasswordForEmail'));
+  assert.ok(auth.includes('updateUser({password:password})'));
+  assert.ok(auth.includes("event==='PASSWORD_RECOVERY'") || recovery.includes("event==='PASSWORD_RECOVERY'"));
+  assert.ok(recovery.includes('window.location.origin') || auth.includes('window.location.origin'));
+  assert.ok(worker.includes('passwordRecoveryFlow: true'));
 });

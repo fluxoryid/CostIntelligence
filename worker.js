@@ -10,7 +10,7 @@ import { onRequestGet as esdmElectricity } from './functions/api/esdm-electricit
 import { onRequestGet as eiaBrent } from './functions/api/eia-brent.js';
 import { onRequestGet as inaprocTransactions } from './functions/api/inaproc-transactions.js';
 
-const BUILD_ID = 'production-2.1-20260919-v4';
+const BUILD_ID = 'production-2.1-20260919-v5';
 
 function corsHeaders() {
   return {
@@ -58,6 +58,7 @@ function versionHandler() {
     uatConsole: true,
     guidedProcurementFlow: true,
     authenticatedAccessGate: true,
+    passwordRecoveryFlow: true,
     principalDiscountAdjustment: true,
     resetHpsControl: true,
     parameterValueDates: true,
@@ -66,7 +67,7 @@ function versionHandler() {
     inaprocTransactionAdapterStaged: true,
     inaprocTransactionAuthRequired: true,
     lkppOpenDataIntelligence: false,
-    deployedCodeExpectation: 'production-2.1-20260919-v4'
+    deployedCodeExpectation: 'production-2.1-20260919-v5'
   });
 }
 

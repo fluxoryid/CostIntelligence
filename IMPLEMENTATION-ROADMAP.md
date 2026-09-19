@@ -23,7 +23,7 @@ This roadmap separates **code-complete**, **backend-validated**, and **release-c
 
 ## Current release state
 
-The repository is now **Production 2.1** with Worker build `production-2.1-20260919-v4`. GitHub Actions deploys the Cloudflare Worker automatically using scoped repository secrets and performs post-deploy runtime smoke verification.
+The repository is now **Production 2.1** with Worker build `production-2.1-20260919-v5`. GitHub Actions deploys the Cloudflare Worker automatically using scoped repository secrets and performs post-deploy runtime smoke verification.
 
 Production 2.1 adds mandatory validated credential access, parameter value dates for BI-Rate/JISDOR/Kurs Pajak/BPS, Principal/OEM discount adjustment by percentage or nominal IDR, Reset HPS, and Bahasa Indonesia UI. LKPP Open Data exploration is deferred. The Data INAPROC adapter is retained but its production UI remains disabled until an authorized token is validated.
 
@@ -49,7 +49,7 @@ Security Advisor was re-run. The three remaining `authenticated_security_definer
 
 A transactional database UAT was run with rollback: Analyst maker → Manager review/approve → Procurement Head lock succeeded; maker self-review was rejected; a `BLOCKED` evidence request could not be submitted; governed learning approval succeeded for Manager and was denied to Analyst; anonymous access and cross-tenant isolation were also verified. No UAT records remained afterward.
 
-Cloudflare production deployment has also been runtime-verified. `/api/version` returns build `production-2.1-20260919-v4` with release channel `production`, `/api/health` returns `healthy`, and deployed `config.js` points to the intended Supabase project with no private Supabase credential markers. Provider smoke checks return HTTP 200 for BI JISDOR, BI-Rate, Kurs Pajak, BPS, ESDM and the retained legacy LKPP status fallback. The LKPP status fallback is not used as Production 2.1 product-price intelligence and does not re-open the deferred LKPP Open Data scope. BPS currently uses a provenance-bound `CACHED` last-known-good snapshot of the official 1 September 2026 BRS because both the BPS WebAPI and public page block the Cloudflare edge; the snapshot is explicitly non-synthetic and becomes `STALE` after 30 September 2026.
+Cloudflare production deployment has also been runtime-verified. `/api/version` returns build `production-2.1-20260919-v5` with release channel `production`, `/api/health` returns `healthy`, and deployed `config.js` points to the intended Supabase project with no private Supabase credential markers. Provider smoke checks return HTTP 200 for BI JISDOR, BI-Rate, Kurs Pajak, BPS, ESDM and the retained legacy LKPP status fallback. The LKPP status fallback is not used as Production 2.1 product-price intelligence and does not re-open the deferred LKPP Open Data scope. BPS currently uses a provenance-bound `CACHED` last-known-good snapshot of the official 1 September 2026 BRS because both the BPS WebAPI and public page block the Cloudflare edge; the snapshot is explicitly non-synthetic and becomes `STALE` after 30 September 2026.
 
 ## Free-plan operational constraint
 
@@ -65,4 +65,4 @@ Supabase documents automatic daily backup history for Pro/Team/Enterprise projec
 ## Release principle
 
 No unavailable official source may be replaced with synthetic production evidence. Approved/locked HPS versions are immutable, learning consumes only explicitly server-approved outcomes, and production authorization is enforced server-side through Supabase RLS/RPC rather than trusting browser controls.
-\n\n## Production UAT Console\nBuild `production-2.1-20260919-v4` adds a build-scoped UAT-01–UAT-24 console backed by tenant-isolated Supabase tables. Test attempts are append-only; retest evidence is preserved; final sign-off is restricted to Procurement Head/Admin and requires the latest result for all 24 cases to be PASS.\n
+\n\n## Production UAT Console\nBuild `production-2.1-20260919-v5` adds a build-scoped UAT-01–UAT-24 console backed by tenant-isolated Supabase tables. Test attempts are append-only; retest evidence is preserved; final sign-off is restricted to Procurement Head/Admin and requires the latest result for all 24 cases to be PASS.\n\n\n## Password Recovery Hotfix\nBuild `production-2.1-20260919-v5` adds self-service password recovery to the production login shell, including explicit production-origin reset redirects, handling of Supabase `PASSWORD_RECOVERY`, password-policy validation, and in-app password update.\n
