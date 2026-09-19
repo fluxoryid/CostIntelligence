@@ -1,12 +1,12 @@
 /* workflow-rbac.js — Phase 9 approval workflow + maker/checker RBAC.
  * Production approval requires an authenticated Supabase tenant membership.
- * Local mode may preview workflow state, but APPROVE/LOCK are disabled.
+ * Supabase is the persistent system of record. Browser state is ephemeral only.
  */
 (function () {
   'use strict';
 
-  var LOCAL_KEY = 'hps_workflow_state_v2';
   var initialized = false;
+  var memoryState = {stage:'DRAFT',history:[]};
 
   var ROLES = {
     'Procurement User': { save:true, submit:true, startReview:false, returnForRework:false, approve:false, reject:false, lock:false },
@@ -38,8 +38,8 @@
   function evidence(){ return window.HPSEvidenceComponentUX && window.HPSEvidenceComponentUX.getCoverage ? window.HPSEvidenceComponentUX.getCoverage() : {coveragePct:0,gate:'BLOCKED',criticalMissing:['Evidence module unavailable']}; }
   function moneyNumber(id){ var e=byId(id); if(!e)return null; var s=String(e.textContent||'').replace(/[^0-9,-]/g,'').replace(/\./g,'').replace(',','.'); var n=Number(s); return isFinite(n)?n:null; }
 
-  function readLocal(){ try{return JSON.parse(localStorage.getItem(LOCAL_KEY)||'{}')||{};}catch(e){return{};} }
-  function writeLocal(v){ try{localStorage.setItem(LOCAL_KEY,JSON.stringify(v||{}));}catch(e){} }
+  function readLocal(){ return memoryState; }
+  function writeLocal(v){ memoryState=v||{stage:'DRAFT',history:[]}; }
 
   function currentRequestId(){
     if(window.HPSCloud && window.HPSCloud.getCurrentRequestId){
