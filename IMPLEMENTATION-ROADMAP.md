@@ -23,7 +23,7 @@ This roadmap separates **code-complete**, **backend-validated**, and **release-c
 
 ## Current release state
 
-The repository is now **Production 2.1** with Worker build `production-2.1-20260919-v2`. GitHub Actions deploys the Cloudflare Worker automatically using scoped repository secrets and performs post-deploy runtime smoke verification.
+The repository is now **Production 2.1** with Worker build `production-2.1-20260919-v3`. GitHub Actions deploys the Cloudflare Worker automatically using scoped repository secrets and performs post-deploy runtime smoke verification.
 
 Production 2.1 adds mandatory validated credential access, parameter value dates for BI-Rate/JISDOR/Kurs Pajak/BPS, Principal/OEM discount adjustment by percentage or nominal IDR, Reset HPS, and Bahasa Indonesia UI. LKPP Open Data exploration is deferred. The Data INAPROC adapter is retained but its production UI remains disabled until an authorized token is validated.
 
@@ -49,7 +49,7 @@ Security Advisor was re-run. The three remaining `authenticated_security_definer
 
 A transactional database UAT was run with rollback: Analyst maker → Manager review/approve → Procurement Head lock succeeded; maker self-review was rejected; a `BLOCKED` evidence request could not be submitted; governed learning approval succeeded for Manager and was denied to Analyst; anonymous access and cross-tenant isolation were also verified. No UAT records remained afterward.
 
-Cloudflare production deployment has also been runtime-verified. `/api/version` returns build `production-2.1-20260919-v2` with release channel `production`, `/api/health` returns `healthy`, and deployed `config.js` points to the intended Supabase project with no private Supabase credential markers. Provider smoke checks return HTTP 200 for BI JISDOR, BI-Rate, Kurs Pajak, BPS, ESDM and the retained legacy LKPP status fallback. The LKPP status fallback is not used as Production 2.1 product-price intelligence and does not re-open the deferred LKPP Open Data scope. BPS currently uses a provenance-bound `CACHED` last-known-good snapshot of the official 1 September 2026 BRS because both the BPS WebAPI and public page block the Cloudflare edge; the snapshot is explicitly non-synthetic and becomes `STALE` after 30 September 2026.
+Cloudflare production deployment has also been runtime-verified. `/api/version` returns build `production-2.1-20260919-v3` with release channel `production`, `/api/health` returns `healthy`, and deployed `config.js` points to the intended Supabase project with no private Supabase credential markers. Provider smoke checks return HTTP 200 for BI JISDOR, BI-Rate, Kurs Pajak, BPS, ESDM and the retained legacy LKPP status fallback. The LKPP status fallback is not used as Production 2.1 product-price intelligence and does not re-open the deferred LKPP Open Data scope. BPS currently uses a provenance-bound `CACHED` last-known-good snapshot of the official 1 September 2026 BRS because both the BPS WebAPI and public page block the Cloudflare edge; the snapshot is explicitly non-synthetic and becomes `STALE` after 30 September 2026.
 
 ## Free-plan operational constraint
 
