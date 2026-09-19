@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v5';
+  const id = 'production-2.1-20260919-v6';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -171,4 +171,20 @@ test('password recovery flow is wired to production Supabase Auth', () => {
   assert.ok(auth.includes("event==='PASSWORD_RECOVERY'") || recovery.includes("event==='PASSWORD_RECOVERY'"));
   assert.ok(recovery.includes('window.location.origin') || auth.includes('window.location.origin'));
   assert.ok(worker.includes('passwordRecoveryFlow: true'));
+});
+
+
+test('dedicated password reset page is wired for mobile-safe navigation', () => {
+  const html = read('index.html');
+  const resetHtml = read('password-reset.html');
+  const resetJs = read('password-reset-page.js');
+  const auth = read('auth-sync.js');
+  const worker = read('worker.js');
+  assert.ok(html.includes('href="password-reset.html"'));
+  assert.ok(resetHtml.includes('id="sendReset"'));
+  assert.ok(resetHtml.includes('id="savePassword"'));
+  assert.ok(resetHtml.includes('password-reset-page.js'));
+  assert.ok(resetJs.includes("event==='PASSWORD_RECOVERY'"));
+  assert.ok(auth.includes("password-reset.html"));
+  assert.ok(worker.includes('dedicatedPasswordResetPage: true'));
 });
