@@ -85,7 +85,7 @@
 - [x] Cloudflare production deployment returns Worker build `production-2.1-20260919-v4` and post-deploy `/api/version` verification passes.
 - [x] Deployed `config.js` points to `https://bobrilytsufxtqqqgaym.supabase.co` and uses a publishable key only; post-deploy smoke test finds no private Supabase credential markers.
 - [ ] In-app Production Readiness Monitor required checks pass.
-- [x] Governed Production UAT Console implemented with append-only attempts, tenant RLS and Head/Admin sign-off gate.\n- [ ] UAT-01 through UAT-24 completed and recorded.
+- [x] Governed Production UAT Console implemented with append-only attempts, tenant RLS and Head/Admin sign-off gate.\n- [x] UAT Console backend lifecycle transaction passed: Analyst run + 24 PASS attempts → Procurement Head/Admin sign-off → authoritative audit event; validation data rolled back with zero residual rows.\n- [ ] UAT-01 through UAT-24 completed and recorded.
 - [ ] Owner accepts the Free-plan backup/availability residuals or upgrades the project before final production reliance.
 - [x] Business owner authorized promotion to Production 2.1 on 19 Sep 2026.
 - [ ] Security owner sign-off / residual-risk acceptance remains an operational governance item if required by company policy.
