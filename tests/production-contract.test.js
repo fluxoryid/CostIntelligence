@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v6';
+  const id = 'production-2.1-20260919-v7';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -187,4 +187,12 @@ test('dedicated password reset page is wired for mobile-safe navigation', () => 
   assert.ok(resetJs.includes("event==='PASSWORD_RECOVERY'"));
   assert.ok(auth.includes("password-reset.html"));
   assert.ok(worker.includes('dedicatedPasswordResetPage: true'));
+});
+
+
+test('forgot-password native links are not intercepted by legacy dialog handler', () => {
+  const html = read('index.html');
+  const recovery = read('password-recovery.js');
+  assert.ok(html.includes('href="password-reset.html"'));
+  assert.ok(recovery.includes("e&&e.tagName!=='A'"));
 });
