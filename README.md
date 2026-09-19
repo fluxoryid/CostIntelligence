@@ -1,4 +1,4 @@
-# HPS Intelligence — Production Fresh 1.0
+# HPS Intelligence — Production 2.1
 
 A clean, local-first HPS / Owner's Estimate application for procurement intelligence. It is built around **HYBRID_STRICT** evidence control: production calculations do not silently substitute synthetic market prices when evidence is missing.
 
@@ -8,7 +8,7 @@ User request → category intelligence → source synchronization → source rel
 
 ## What is live-capable
 
-Cloudflare Pages Functions provide adapters for Bank Indonesia JISDOR, BI-Rate, Kemenkeu Kurs Pajak, World Bank, LKPP dataset status, ESDM regulation status, and optional EIA Brent. All adapters use real upstream data or report unavailable; they do not generate substitute numbers.
+Cloudflare Worker API routes provide active adapters for Bank Indonesia JISDOR, BI-Rate, Kemenkeu Kurs Pajak, BPS, World Bank, ESDM regulation status, and optional EIA Brent. All active adapters use real upstream data or governed official snapshots, or report unavailable; they do not generate substitute numbers. LKPP Open Data / price intelligence is deferred from Production 2.1; the legacy LKPP status fallback is retained only for compatibility and is excluded from production-readiness scoring and material HPS price intelligence.
 
 ## Strict production rules
 

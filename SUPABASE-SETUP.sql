@@ -620,15 +620,11 @@ for update to authenticated
 using(public.hps_role_in(tenant_id,array['Analyst/Senior','Procurement Head/Admin']))
 with check(public.hps_is_member(tenant_id));
 
--- Audit: append-only for authenticated tenant actors.
+-- Audit: server-managed append-only. Authenticated clients may read tenant audit events, but cannot insert/update/delete them directly.
 drop policy if exists hps_audit_read on public.hps_audit_log;
 create policy hps_audit_read on public.hps_audit_log
 for select to authenticated using(public.hps_is_member(tenant_id));
-drop policy if exists hps_audit_insert on public.hps_audit_log;
-create policy hps_audit_insert on public.hps_audit_log
-for insert to authenticated
-with check(public.hps_is_member(tenant_id) and user_id=(select auth.uid()));
-
+drop policy if exists hps_audit_insert on public.hps_audit_log;\n
 -- Learning: submit pending; Manager/Head approval is RPC-only.
 drop policy if exists hps_learning_read on public.hps_learning_outcomes;
 create policy hps_learning_read on public.hps_learning_outcomes
@@ -739,7 +735,7 @@ grant select on table public.hps_request_versions to authenticated;
 grant select,insert on table public.hps_reviews to authenticated;
 grant select,insert,update on table public.hps_documents to authenticated;
 grant select,insert,update on table public.hps_component_evidence to authenticated;
-grant select,insert on table public.hps_audit_log to authenticated;
+grant select on table public.hps_audit_log to authenticated;
 grant select,insert on table public.hps_learning_outcomes to authenticated;
 grant select,insert on table public.hps_negotiation_outcomes to authenticated;
 

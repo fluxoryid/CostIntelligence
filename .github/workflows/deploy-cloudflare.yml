@@ -92,7 +92,7 @@ jobs:
         run: |
           set -u
           BASE_URL="https://costintelligence-pages.procurement-e61.workers.dev"
-          for path in             "/api/fx-usd-idr"             "/api/bi-rate"             "/api/kurs-pajak?currency=USD"             "/api/bps-inflation"             "/api/lkpp-status"             "/api/esdm-electricity"
+          for path in             "/api/fx-usd-idr"             "/api/bi-rate"             "/api/kurs-pajak?currency=USD"             "/api/bps-inflation"             "/api/esdm-electricity"
           do
             code="$(curl --silent --show-error --max-time 25 -o /tmp/provider.json -w "%{http_code}" "$BASE_URL$path" || true)"
             echo "$path -> HTTP $code"

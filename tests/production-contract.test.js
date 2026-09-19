@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v1';
+  const id = 'production-2.1-20260919-v2';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -120,4 +120,16 @@ test('manual INAPROC benchmark value without provenance is rejected', () => {
   assert.ok(app.includes('hasRequiredInaprocProvenance'));
   assert.ok(app.includes("meta.priceBasis !== 'UNVERIFIED'"));
   assert.ok(app.includes("'REJECTED'"));
+});
+
+
+test('audit log is server-managed and browser code cannot insert audit rows directly', () => {
+  const app = read('app.js');
+  const cloud = read('cloud-sync.js');
+  const sql = read('SUPABASE-SETUP.sql');
+  assert.ok(!app.includes('HPSCloud.pushAuditLog({'));
+  assert.ok(!cloud.includes("from('hps_audit_log').insert"));
+  assert.ok(sql.includes('drop policy if exists hps_audit_insert on public.hps_audit_log;'));
+  assert.ok(sql.includes('grant select on table public.hps_audit_log to authenticated;'));
+  assert.ok(!sql.includes('grant select,insert on table public.hps_audit_log to authenticated;'));
 });

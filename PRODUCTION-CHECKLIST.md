@@ -27,13 +27,13 @@
 - [x] Kemenkeu Kurs Pajak remains distinct from commercial FX and is used for customs/tax scenarios.
 - [x] BPS CPI is category-gated and cannot universally escalate HPS.
 - [x] BPS Cloudflare-edge resilience uses a provenance-bound official BRS last-known-good snapshot when both official live routes are blocked; state is `CACHED`, never `LIVE`, and expires to `STALE` after 30 September 2026.
-- [x] LKPP catalog fallback is treated as catalog/status evidence rather than an inferred product price.
+- [x] LKPP Open Data / price intelligence is deferred. The legacy LKPP status fallback remains compatibility-only and is excluded from material HPS price intelligence and Production 2.1 readiness scoring.
 - [x] ESDM evidence is regulation/cost-driver evidence and does not invent one generic tariff.
 - [x] Governed learning consumes only server-approved outcomes; new outcomes are pending by default.
 - [x] Automated Node test suite and GitHub CI enabled.
 - [x] Security model, UAT plan and operations/recovery runbook added.
 - [x] `/api/health` and `/api/version` identify runtime health and deployment build.
-- [x] Production provider smoke checks run after deployment; BI JISDOR, BI-Rate, Kurs Pajak, BPS, LKPP and ESDM routes currently return HTTP 200.
+- [x] Production provider smoke checks run after deployment for active Production 2.1 sources: BI JISDOR, BI-Rate, Kurs Pajak, BPS and ESDM.
 - [x] Browser configuration contains only the production Supabase URL + publishable key; no service-role credential.
 
 ## Live Supabase backend — completed / validated
@@ -43,7 +43,7 @@
 - [x] Obsolete `requests`, `audit_log`, `model_governance` and `hps_users` tables removed after migration verification.
 - [x] Tenant `t1` bootstrapped and existing users mapped to production roles.
 - [x] Six active memberships confirmed by owner as the intended roster: owner + five team members.
-- [x] RLS enabled on every public HPS table.
+- [x] RLS enabled on every public HPS table.\n- [x] Audit log is server-managed: authenticated browser roles have SELECT only; workflow RPCs create authoritative audit events.
 - [x] Core request/version writes restricted to controlled RPCs.
 - [x] Anonymous table privileges revoked; authenticated table privileges reduced to required operations only.
 - [x] Private `hps-evidence` Storage bucket created with 20 MB limit and MIME allow-list.
@@ -79,10 +79,10 @@
 ## Release validation
 
 - [x] Production 2.1 deployment workflow completed successfully after the release-verification step was corrected to derive the expected build from `config.js`.
-- [x] Post-deploy runtime reports release channel `production`, build `production-2.1-20260919-v1`, and health `healthy`.
-- [x] Provider smoke probes return HTTP 200 for JISDOR, BI-Rate, Kurs Pajak, BPS, existing LKPP status fallback and ESDM.
+- [x] Post-deploy runtime reports release channel `production`, build `production-2.1-20260919-v2`, and health `healthy`.
+- [x] Provider smoke probes return HTTP 200 for active Production 2.1 sources: JISDOR, BI-Rate, Kurs Pajak, BPS and ESDM.
 
-- [x] Cloudflare production deployment returns Worker build `production-2.1-20260919-v1` and post-deploy `/api/version` verification passes.
+- [x] Cloudflare production deployment returns Worker build `production-2.1-20260919-v2` and post-deploy `/api/version` verification passes.
 - [x] Deployed `config.js` points to `https://bobrilytsufxtqqqgaym.supabase.co` and uses a publishable key only; post-deploy smoke test finds no private Supabase credential markers.
 - [ ] In-app Production Readiness Monitor required checks pass.
 - [ ] UAT-01 through UAT-24 completed and recorded.
