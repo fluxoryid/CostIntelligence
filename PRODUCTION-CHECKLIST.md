@@ -79,13 +79,13 @@
 ## Release validation
 
 - [x] Production 2.1 deployment workflow completed successfully after the release-verification step was corrected to derive the expected build from `config.js`.
-- [x] Post-deploy runtime reports release channel `production`, build `production-2.1-20260919-v7`, and health `healthy`.
+- [x] Post-deploy runtime reports release channel `production`, build `production-2.1-20260919-v8`, and health `healthy`.
 - [x] Provider smoke probes return HTTP 200 for active Production 2.1 sources: JISDOR, BI-Rate, Kurs Pajak, BPS and ESDM.
 
-- [x] Cloudflare production deployment returns Worker build `production-2.1-20260919-v7` and post-deploy `/api/version` verification passes.
+- [x] Cloudflare production deployment returns Worker build `production-2.1-20260919-v8` and post-deploy `/api/version` verification passes.
 - [x] Deployed `config.js` points to `https://bobrilytsufxtqqqgaym.supabase.co` and uses a publishable key only; post-deploy smoke test finds no private Supabase credential markers.
 - [ ] In-app Production Readiness Monitor required checks pass.
 - [x] Governed Production UAT Console implemented with append-only attempts, tenant RLS and Head/Admin sign-off gate.\n- [x] UAT Console backend lifecycle transaction passed: Analyst run + 24 PASS attempts → Procurement Head/Admin sign-off → authoritative audit event; validation data rolled back with zero residual rows.\n- [ ] UAT-01 through UAT-24 completed and recorded.
 - [ ] Owner accepts the Free-plan backup/availability residuals or upgrades the project before final production reliance.
-- [x] Self-service password recovery flow implemented in the production login shell.\n- [x] Dedicated mobile-safe password reset page implemented with native navigation.\n- [x] Native forgot-password link interception removed from legacy dialog handler.\n- [ ] Supabase Auth Site URL / Redirect URL must include the production Cloudflare URL and `/password-reset.html` before recovery emails are reissued.\n- [x] Business owner authorized promotion to Production 2.1 on 19 Sep 2026.
+- [x] Self-service password recovery flow implemented in the production login shell.\n- [x] Dedicated mobile-safe password reset page implemented with native navigation.\n- [x] Native forgot-password link interception removed from legacy dialog handler.\n- [x] Canonical password reset route `/password-reset` used for recovery callbacks.\n- [ ] Supabase Auth Site URL / Redirect URL must include the production Cloudflare URL and `/password-reset` before recovery emails are reissued.\n- [x] Business owner authorized promotion to Production 2.1 on 19 Sep 2026.
 - [ ] Security owner sign-off / residual-risk acceptance remains an operational governance item if required by company policy.

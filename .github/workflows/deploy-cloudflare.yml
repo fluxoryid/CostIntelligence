@@ -109,8 +109,8 @@ jobs:
         run: |
           set -e
           BASE_URL="https://costintelligence-pages.procurement-e61.workers.dev"
-          code="$(curl --silent --show-error --max-time 20 -o /tmp/password-reset.html -w "%{http_code}" "$BASE_URL/password-reset.html")"
-          echo "/password-reset.html -> HTTP $code"
+          code="$(curl --silent --show-error --max-time 20 -o /tmp/password-reset.html -w "%{http_code}" "$BASE_URL/password-reset")"
+          echo "/password-reset -> HTTP $code"
           test "$code" = "200"
           grep -q 'Pemulihan Kata Sandi' /tmp/password-reset.html
           grep -q 'password-reset-page.js' /tmp/password-reset.html

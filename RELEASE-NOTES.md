@@ -1,6 +1,6 @@
 # Release Notes
 
-## Production 2.1 — Core Hardening & Bahasa Indonesia\n\n- Added self-service password recovery: forgot-password request, production-origin redirect, Supabase `PASSWORD_RECOVERY` handling, and governed new-password update UI.\n- Added a dedicated password-reset page with native navigation to avoid mobile/PWA dialog-click failures.\n- Fixed legacy recovery-script interception so native forgot-password links now navigate reliably on mobile.\n\n- Production UAT Console added for UAT-01–UAT-24 with build-scoped runs, append-only retest evidence, CSV export, tenant RLS, and Procurement Head/Admin final sign-off only after all 24 latest results PASS.
+## Production 2.1 — Core Hardening & Bahasa Indonesia\n\n- Added self-service password recovery: forgot-password request, production-origin redirect, Supabase `PASSWORD_RECOVERY` handling, and governed new-password update UI.\n- Added a dedicated password-reset page with native navigation to avoid mobile/PWA dialog-click failures.\n- Fixed legacy recovery-script interception so native forgot-password links now navigate reliably on mobile.\n- Switched recovery callbacks to the canonical `/password-reset` route to avoid Cloudflare static-HTML 307 canonicalization during auth recovery.\n\n- Production UAT Console added for UAT-01–UAT-24 with build-scoped runs, append-only retest evidence, CSV export, tenant RLS, and Procurement Head/Admin final sign-off only after all 24 latest results PASS.
 
 - Browser syntax regression in `cloud-sync.js` corrected; CI/deploy now syntax-check all production browser modules.
 
@@ -12,7 +12,7 @@
 - Preserved server-side RLS/RPC as the authorization boundary; browser controls remain defense-in-depth only.
 - Data INAPROC transaction-history adapter is staged and security-hardened but its production UI remains disabled until an authorized Data Integrator token is configured and validated.
 - LKPP Open Data exploration is intentionally deferred from this production release; it is excluded from the active readiness monitor, UAT provider dependency and deployment provider smoke probes.\n- Hardened audit integrity: browser clients no longer insert audit rows directly; authoritative workflow audit events are emitted by server-side RPCs, while tenant users retain read-only audit access.
-- Worker build: `production-2.1-20260919-v7`.
+- Worker build: `production-2.1-20260919-v8`.
 
 ## Production 2.0 RC — Enterprise Multi-User Governance
 
