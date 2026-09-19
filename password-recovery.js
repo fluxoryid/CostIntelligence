@@ -74,7 +74,9 @@
   }
   function bind(){
     ['gateForgotPassword','authForgotPassword'].forEach(function(id){
-      var e=byId(id);if(e)e.addEventListener('click',function(ev){ev.preventDefault();openReset('','error');});
+      var e=byId(id);
+      // Native anchors must navigate to password-reset.html. Only legacy button surfaces use the dialog fallback.
+      if(e&&e.tagName!=='A')e.addEventListener('click',function(ev){ev.preventDefault();openReset('','error');});
     });
     var send=byId('btnSendPasswordReset');if(send)send.addEventListener('click',sendReset);
     var save=byId('btnSaveRecoveryPassword');if(save)save.addEventListener('click',saveNewPassword);
