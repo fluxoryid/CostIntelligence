@@ -1,12 +1,12 @@
 /* workflow-rbac.js — Phase 9 approval workflow + maker/checker RBAC.
  * Production approval requires an authenticated Supabase tenant membership.
- * Local mode may preview workflow state, but APPROVE/LOCK are disabled.
+ * Supabase is the persistent system of record. Browser state is ephemeral only.
  */
 (function () {
   'use strict';
 
-  var LOCAL_KEY = 'hps_workflow_state_v2';
   var initialized = false;
+  var memoryState = {stage:'DRAFT',history:[]};
 
   var ROLES = {
     'Procurement User': { save:true, submit:true, startReview:false, returnForRework:false, approve:false, reject:false, lock:false },
@@ -38,8 +38,8 @@
   function evidence(){ return window.HPSEvidenceComponentUX && window.HPSEvidenceComponentUX.getCoverage ? window.HPSEvidenceComponentUX.getCoverage() : {coveragePct:0,gate:'BLOCKED',criticalMissing:['Evidence module unavailable']}; }
   function moneyNumber(id){ var e=byId(id); if(!e)return null; var s=String(e.textContent||'').replace(/[^0-9,-]/g,'').replace(/\./g,'').replace(',','.'); var n=Number(s); return isFinite(n)?n:null; }
 
-  function readLocal(){ try{return JSON.parse(localStorage.getItem(LOCAL_KEY)||'{}')||{};}catch(e){return{};} }
-  function writeLocal(v){ try{localStorage.setItem(LOCAL_KEY,JSON.stringify(v||{}));}catch(e){} }
+  function readLocal(){ return memoryState; }
+  function writeLocal(v){ memoryState=v||{stage:'DRAFT',history:[]}; }
 
   function currentRequestId(){
     if(window.HPSCloud && window.HPSCloud.getCurrentRequestId){
@@ -176,7 +176,7 @@
       var role=normRole(user&&user.role); var acts=allowedActions(role,state.stage); var connected=cloudReady();
       var gateTone=cov.gate==='APPROVAL READY'?'text-emerald-300':cov.gate==='BLOCKED'?'text-rose-300':'text-amber-300';
       x.innerHTML='<div class="flex flex-wrap items-start justify-between gap-3"><div><div class="font-semibold text-slate-200"><i class="fa-solid fa-user-check mr-1.5 text-cyan-400"></i>Approval Workflow & RBAC</div><div class="mt-1 text-[10px] text-slate-500">Maker-checker workflow. Approved/locked production versions are immutable and require server-side Supabase RLS/RPC enforcement.</div></div><div class="text-right"><div class="text-[9px] uppercase text-slate-500">Stage</div><div class="font-semibold text-cyan-300">'+esc(state.stage)+'</div></div></div>'+ 
-        '<div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2"><div class="rounded border border-slate-800 p-2"><div class="text-[9px] uppercase text-slate-500">Current Role</div><div class="mt-1 text-slate-300">'+esc(role)+'</div></div><div class="rounded border border-slate-800 p-2"><div class="text-[9px] uppercase text-slate-500">Evidence Gate</div><div class="mt-1 '+gateTone+'">'+esc(cov.gate)+' · '+cov.coveragePct+'%</div></div><div class="rounded border border-slate-800 p-2"><div class="text-[9px] uppercase text-slate-500">Persistence</div><div class="mt-1 '+(connected?'text-emerald-300':'text-amber-300')+'">'+(connected?'Supabase / RLS':'Local preview — production approval disabled')+'</div></div></div>'+ 
+        '<div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2"><div class="rounded border border-slate-800 p-2"><div class="text-[9px] uppercase text-slate-500">Current Role</div><div class="mt-1 text-slate-300">'+esc(role)+'</div></div><div class="rounded border border-slate-800 p-2"><div class="text-[9px] uppercase text-slate-500">Evidence Gate</div><div class="mt-1 '+gateTone+'">'+esc(cov.gate)+' · '+cov.coveragePct+'%</div></div><div class="rounded border border-slate-800 p-2"><div class="text-[9px] uppercase text-slate-500">Persistence</div><div class="mt-1 '+(connected?'text-emerald-300':'text-amber-300')+'">'+(connected?'Supabase / RLS':'Session preview only — not persisted')+'</div></div></div>'+ 
         '<div class="mt-3 flex flex-wrap gap-2"><button type="button" data-wf-save class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-[10px]"><i class="fa-solid fa-floppy-disk mr-1"></i>Save Draft</button>'+acts.map(function(a){var d=ACTIONS[a];return '<button type="button" data-wf-action="'+a+'" class="px-3 py-1.5 rounded text-white text-[10px] '+d.tone+'"><i class="fa-solid '+d.icon+' mr-1"></i>'+d.label+'</button>';}).join('')+'</div>'+ 
         '<details class="mt-3"><summary class="cursor-pointer text-[10px] font-medium text-slate-400">Workflow history</summary><div class="mt-2 space-y-1">'+histHtml(state.history)+'</div></details>';
       var saveBtn=x.querySelector('[data-wf-save]'); if(saveBtn)saveBtn.addEventListener('click',saveDraft);

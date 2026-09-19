@@ -6,8 +6,7 @@
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'hps_production_fresh_v1';
-  var LEARNING_KEY = 'hps_learning_outcomes_v1';
+  var LEGACY_BROWSER_KEYS = ['hps_production_fresh_v1','hps_learning_outcomes_v1','hps_workflow_state_v2'];
   var TENANT_ID = (window.HPS_CONFIG && window.HPS_CONFIG.TENANT_ID) || 'default-org';
   var learningEvents = [];
   var currentUser = null;
@@ -346,11 +345,16 @@
     }).join('');
   }
 
+  function purgeLegacyBrowserPersistence() {
+    try { LEGACY_BROWSER_KEYS.forEach(function(k){ localStorage.removeItem(k); }); } catch (e) {}
+  }
   function loadLocalLearning() {
-    try { learningEvents = JSON.parse(localStorage.getItem(LEARNING_KEY) || '[]') || []; } catch (e) { learningEvents = []; }
+    // Supabase is the only persistent system of record. Learning is loaded
+    // from governed server-approved outcomes after authentication.
+    learningEvents = [];
   }
   function saveLocalLearning() {
-    try { localStorage.setItem(LEARNING_KEY, JSON.stringify(learningEvents.slice(-200))); } catch (e) {}
+    // Intentionally no-op: never persist business/learning data in localStorage.
   }
   function updateLearningStatus(req) {
     var node = el('learningStatus'); if (!node) return;
@@ -474,20 +478,12 @@
   }
 
   function persistForm() {
-    var ids = ['projName','projCategory','engineCategory','budgetLimit','baseCurrency','projDescription','matQty','matUnitPrice','laborDays','laborRate','overheadPercent','profitPercent','taxPercent','principalDiscountMode','principalDiscountValue','historicalPrice','historicalFxRate','benchmark1Type','benchmark1','benchmark2Type','benchmark2','benchmark3Type','benchmark3','v1Name','v1Price','v2Name','v2Price'];
-    var data = { requestId:currentRequestId, resetToZero:hpsResetMode, fields:{} };
-    ids.forEach(function (id) { if (el(id)) data.fields[id] = el(id).value; });
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+    // Intentionally no-op. Draft/business data must be saved through Supabase.
   }
 
   function restoreForm() {
-    try {
-      var data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!data || !data.fields) return;
-      currentRequestId = data.requestId || currentRequestId;
-      hpsResetMode = data.resetToZero === true;
-      Object.keys(data.fields).forEach(function (id) { if (el(id)) el(id).value = data.fields[id]; });
-    } catch (e) {}
+    // Do not restore business data from browser storage. Start from a clean
+    // client state and load governed records from Supabase explicitly.
     updateRef();
   }
 
@@ -736,6 +732,7 @@
   window.HPSAppControl={exitResetMode:exitResetMode,isReset:function(){return hpsResetMode;},recalculate:recalculate};
 
   document.addEventListener('DOMContentLoaded', function () {
+    purgeLegacyBrowserPersistence();
     bindAccessGate();
     showAccessGate('');
     refreshAuth();
