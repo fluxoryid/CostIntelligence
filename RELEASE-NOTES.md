@@ -2,6 +2,8 @@
 
 ## Production 2.1 — Core Hardening & Bahasa Indonesia
 
+- Browser syntax regression in `cloud-sync.js` corrected; CI/deploy now syntax-check all production browser modules.
+
 - Added explicit value dates/periods for BI-Rate, USD/IDR JISDOR, Kurs Pajak KMK and BPS inflation.
 - Added Principal/OEM discount adjustment with two modes: percentage (%) or nominal IDR. The discount reduces the primary cost component before overhead, profit and tax; the component is never allowed to become negative.
 - Added **Reset HPS** to set the active HPS calculation to zero without deleting previously saved server history.
@@ -10,7 +12,7 @@
 - Preserved server-side RLS/RPC as the authorization boundary; browser controls remain defense-in-depth only.
 - Data INAPROC transaction-history adapter is staged and security-hardened but its production UI remains disabled until an authorized Data Integrator token is configured and validated.
 - LKPP Open Data exploration is intentionally deferred from this production release; it is excluded from the active readiness monitor, UAT provider dependency and deployment provider smoke probes.\n- Hardened audit integrity: browser clients no longer insert audit rows directly; authoritative workflow audit events are emitted by server-side RPCs, while tenant users retain read-only audit access.
-- Worker build: `production-2.1-20260919-v2`.
+- Worker build: `production-2.1-20260919-v3`.
 
 ## Production 2.0 RC — Enterprise Multi-User Governance
 

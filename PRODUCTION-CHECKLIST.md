@@ -79,10 +79,10 @@
 ## Release validation
 
 - [x] Production 2.1 deployment workflow completed successfully after the release-verification step was corrected to derive the expected build from `config.js`.
-- [x] Post-deploy runtime reports release channel `production`, build `production-2.1-20260919-v2`, and health `healthy`.
+- [x] Post-deploy runtime reports release channel `production`, build `production-2.1-20260919-v3`, and health `healthy`.
 - [x] Provider smoke probes return HTTP 200 for active Production 2.1 sources: JISDOR, BI-Rate, Kurs Pajak, BPS and ESDM.
 
-- [x] Cloudflare production deployment returns Worker build `production-2.1-20260919-v2` and post-deploy `/api/version` verification passes.
+- [x] Cloudflare production deployment returns Worker build `production-2.1-20260919-v3` and post-deploy `/api/version` verification passes.
 - [x] Deployed `config.js` points to `https://bobrilytsufxtqqqgaym.supabase.co` and uses a publishable key only; post-deploy smoke test finds no private Supabase credential markers.
 - [ ] In-app Production Readiness Monitor required checks pass.
 - [ ] UAT-01 through UAT-24 completed and recorded.
