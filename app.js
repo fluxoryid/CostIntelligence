@@ -642,20 +642,56 @@
 
   function resetHps(){
     if(!currentUser){showAccessGate('Sesi tidak valid. Silakan masuk kembali.');return;}
-    if(!window.confirm('Reset seluruh nilai perhitungan HPS aktif menjadi 0? Histori yang sudah tersimpan di server tidak akan dihapus.'))return;
-    var zeroIds=['matQty','matUnitPrice','laborDays','laborRate','overheadPercent','profitPercent','principalDiscountValue','historicalPrice','historicalFxRate','benchmark1','benchmark2','benchmark3'];
-    zeroIds.forEach(function(id){var x=el(id);if(x){x.value='0';x.dispatchEvent(new Event('input',{bubbles:true}));x.dispatchEvent(new Event('change',{bubbles:true}));}});
+    if(!window.confirm('Reset seluruh nilai parameter dan HPS aktif menjadi 0? Histori yang sudah tersimpan di server tidak akan dihapus.'))return;
+
+    // Reset every active numeric parameter that can affect the HPS calculation
+    // or its commercial comparison. Post-award/learning outcome fields are
+    // intentionally excluded because they are historical evidence, not active HPS inputs.
+    var zeroIds=[
+      'budgetLimit','fxRateInput',
+      'matQty','matUnitPrice','laborDays','laborRate',
+      'overheadPercent','profitPercent','taxPercent',
+      'principalDiscountValue',
+      'historicalPrice','historicalFxRate',
+      'benchmark1','benchmark2','benchmark3',
+      'v1Price','v2Price'
+    ];
+    zeroIds.forEach(function(id){
+      var x=el(id);
+      if(!x)return;
+      x.value='0';
+      x.dispatchEvent(new Event('input',{bubbles:true}));
+      x.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+
+    // Reset category-specific dynamic cost parameters.
     var panel=el('categoryCostProfilePanel');
-    if(panel) panel.querySelectorAll('[data-ccu-key]').forEach(function(x){x.value='0';x.dispatchEvent(new Event('input',{bubbles:true}));x.dispatchEvent(new Event('change',{bubbles:true}));});
+    if(panel) panel.querySelectorAll('[data-ccu-key]').forEach(function(x){
+      x.value='0';
+      x.dispatchEvent(new Event('input',{bubbles:true}));
+      x.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+
+    // Clear non-numeric historical controls so no stale escalation parameter
+    // remains active after reset.
+    if(el('historicalPurchaseDate')) el('historicalPurchaseDate').value='';
+    if(el('allowBpsCpiProxy')) el('allowBpsCpiProxy').checked=false;
     if(el('principalDiscountMode')) el('principalDiscountMode').value='PERCENT';
+
     hpsResetMode = true;
     recalculate();
     persistForm();
-    ['subtotalMaterial','subtotalLabor','ownerBuildDisplay','hpsNetDisplay','hpsGrossDisplay','threshold80Display'].forEach(function(id){if(el(id))el(id).textContent='Rp0';});
+
+    // Force all headline HPS/comparison values to an explicit zero state.
+    ['subtotalMaterial','subtotalLabor','ownerBuildDisplay','hpsNetDisplay','hpsGrossDisplay','threshold80Display']
+      .forEach(function(id){if(el(id))el(id).textContent='Rp0';});
+    ['budgetVarianceDisplay','v1Deviation','v2Deviation']
+      .forEach(function(id){if(el(id))el(id).textContent='0';});
     if(el('principalDiscountDisplay'))el('principalDiscountDisplay').textContent='-Rp0';
     if(el('confidenceDisplay'))el('confidenceDisplay').textContent='—';
     if(el('modelsUsedDisplay'))el('modelsUsedDisplay').textContent='—';
-    notify('HPS aktif telah direset ke 0. Histori server tidak dihapus.', 'success');
+
+    notify('Semua nilai parameter aktif dan HPS telah direset ke 0. Histori server dan outcome/learning tidak dihapus.', 'success');
   }
 
   function isHpsCalculationInput(node) {

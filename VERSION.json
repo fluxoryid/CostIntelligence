@@ -2,7 +2,7 @@
   "name": "HPS Intelligence",
   "release": "Production 2.1",
   "date": "2026-09-19",
-  "workerBuild": "production-2.1-20260919-v10",
+  "workerBuild": "production-2.1-20260919-v11",
   "defaultCalculationMode": "HYBRID_STRICT",
   "syntheticProductionEvidence": false,
   "multiUserArchitecture": "Cloudflare Worker + Supabase Auth/PostgreSQL/Storage",
@@ -22,7 +22,8 @@
     "password recovery flow",
     "dedicated password reset page",
     "login password field ID guard",
-    "browser CalcCore export"
+    "browser CalcCore export",
+    "reset all active HPS parameters"
   ],
   "deferredIntegrations": {
     "LKPP Open Data": "deferred by owner",
