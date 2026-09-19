@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v3';
+  const id = 'production-2.1-20260919-v4';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -33,7 +33,7 @@ test('Supabase schema enables RLS and immutable versions', () => {
 
 test('production extensions are all loaded', () => {
   const cfg = read('config.js');
-  for (const f of ['governance-extensions.js','procurement-ux.js','category-cost-ux.js','evidence-component-ux.js','document-hub.js','advanced-intelligence.js','workflow-rbac.js','learning-negotiation.js','production-health.js']) {
+  for (const f of ['governance-extensions.js','procurement-ux.js','category-cost-ux.js','evidence-component-ux.js','document-hub.js','advanced-intelligence.js','workflow-rbac.js','learning-negotiation.js','production-health.js','uat-console.js']) {
     assert.ok(cfg.includes(f),f);
   }
 });
@@ -132,4 +132,26 @@ test('audit log is server-managed and browser code cannot insert audit rows dire
   assert.ok(sql.includes('drop policy if exists hps_audit_insert on public.hps_audit_log;'));
   assert.ok(sql.includes('grant select on table public.hps_audit_log to authenticated;'));
   assert.ok(!sql.includes('grant select,insert on table public.hps_audit_log to authenticated;'));
+});
+
+
+test('Production UAT Console is build-scoped, append-only and tenant governed', () => {
+  const cfg = read('config.js');
+  const worker = read('worker.js');
+  const cloud = read('cloud-sync.js');
+  const ui = read('uat-console.js');
+  const sql = read('SUPABASE-SETUP.sql');
+  assert.ok(cfg.includes("'uat-console.js'"));
+  assert.ok(worker.includes('uatConsole: true'));
+  assert.ok(cloud.includes("from('hps_uat_runs')"));
+  assert.ok(cloud.includes("from('hps_uat_attempts')"));
+  assert.ok(ui.includes("UAT-24"));
+  assert.ok(ui.includes("latest result for every case is PASS"));
+  assert.ok(sql.includes('create table if not exists public.hps_uat_runs'));
+  assert.ok(sql.includes('create table if not exists public.hps_uat_attempts'));
+  assert.ok(sql.includes('hps_uat_attempts_immutable'));
+  assert.ok(sql.includes('All 24 latest UAT results must be PASS before sign-off'));
+  assert.ok(sql.includes('alter table public.hps_uat_runs enable row level security'));
+  assert.ok(sql.includes('alter table public.hps_uat_attempts enable row level security'));
+  assert.ok(sql.includes("grant update(status,signoff_note) on table public.hps_uat_runs to authenticated"));
 });
