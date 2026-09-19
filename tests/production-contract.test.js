@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v10';
+  const id = 'production-2.1-20260919-v11';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -226,4 +226,22 @@ test('CalcCore is exported to the browser runtime used by app.js', () => {
   assert.ok(calc.includes('module.exports = CALC_CORE_API'));
   assert.ok(app.includes('window.CalcCore.generateClassification'));
   assert.ok(app.includes('Sesi valid, tetapi aplikasi gagal dimulai:'));
+});
+
+
+test('Reset HPS zeroes all active numeric parameters and preserves historical outcome evidence', () => {
+  const app = read('app.js');
+  [
+    'budgetLimit','fxRateInput','matQty','matUnitPrice','laborDays','laborRate',
+    'overheadPercent','profitPercent','taxPercent','principalDiscountValue',
+    'historicalPrice','historicalFxRate','benchmark1','benchmark2','benchmark3',
+    'v1Price','v2Price'
+  ].forEach((id) => assert.ok(app.includes("'" + id + "'"), 'missing reset field: ' + id));
+  assert.ok(app.includes("historicalPurchaseDate"));
+  assert.ok(app.includes("allowBpsCpiProxy"));
+  assert.ok(app.includes("querySelectorAll('[data-ccu-key]')"));
+  assert.ok(app.includes("hpsResetMode = true"));
+  assert.ok(app.includes("hpsNetDisplay"));
+  assert.ok(app.includes("hpsGrossDisplay"));
+  assert.ok(!app.includes("'actualOutcomePrice','actualInvoicePrice'"));
 });
