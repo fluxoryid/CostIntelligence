@@ -739,14 +739,14 @@ grant select on table public.hps_audit_log to authenticated;
 grant select,insert on table public.hps_learning_outcomes to authenticated;
 grant select,insert on table public.hps_negotiation_outcomes to authenticated;
 
--- Identity sequence required by authenticated direct audit inserts.
-do $$
+-- Audit identity sequence is not available to browser roles. SECURITY DEFINER
+-- workflow functions insert authoritative audit events using owner privileges.
+do $
 begin
   if to_regclass('public.hps_audit_log_id_seq') is not null then
     execute 'revoke all on sequence public.hps_audit_log_id_seq from anon, authenticated';
-    execute 'grant usage,select on sequence public.hps_audit_log_id_seq to authenticated';
   end if;
-end $$;
+end $;
 
 -- ===========================================================================
 -- BOOTSTRAP NOTES
@@ -757,3 +757,181 @@ end $$;
 --    Procurement User | Analyst/Senior | Manager | Procurement Head/Admin | Auditor
 -- 4. Browser configuration must contain only project URL + publishable key.
 -- 5. Do not grant anon policies or expose a service-role key in frontend code.
+
+
+-- ===========================================================================
+-- PRODUCTION UAT CONSOLE
+-- Build-scoped UAT run + append-only attempts. Final sign-off is a controlled
+-- UPDATE guarded by RLS plus a non-callable SECURITY DEFINER trigger.
+-- ===========================================================================
+create table if not exists public.hps_uat_runs (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id text not null references public.hps_tenants(id) on delete cascade,
+  build_id text not null check(length(build_id) between 1 and 120),
+  status text not null default 'IN_PROGRESS' check(status in ('IN_PROGRESS','SIGNED_OFF')),
+  created_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  signed_off_by uuid references auth.users(id),
+  signed_off_at timestamptz,
+  signoff_note text check(signoff_note is null or length(signoff_note)<=5000),
+  unique(tenant_id,build_id),
+  unique(id,tenant_id)
+);
+create index if not exists hps_uat_runs_tenant_status_idx on public.hps_uat_runs(tenant_id,status,created_at desc);
+create index if not exists hps_uat_runs_created_by_idx on public.hps_uat_runs(created_by);
+create index if not exists hps_uat_runs_signed_off_by_idx on public.hps_uat_runs(signed_off_by);
+
+create table if not exists public.hps_uat_attempts (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id text not null,
+  run_id uuid not null,
+  test_id text not null check(test_id ~ '^UAT-(0[1-9]|1[0-9]|2[0-4])$'),
+  result text not null check(result in ('PASS','FAIL','BLOCKED')),
+  tester_user_id uuid not null references auth.users(id),
+  tester_role text not null check(tester_role in ('Procurement User','Analyst/Senior','Manager','Procurement Head/Admin','Auditor')),
+  evidence text not null check(length(trim(evidence)) between 1 and 5000),
+  defect_ref text check(defect_ref is null or length(defect_ref)<=500),
+  retest_notes text check(retest_notes is null or length(retest_notes)<=5000),
+  browser_device text check(browser_device is null or length(browser_device)<=500),
+  created_at timestamptz not null default now(),
+  constraint hps_uat_attempt_fail_defect check(result<>'FAIL' or nullif(trim(coalesce(defect_ref,'')),'') is not null),
+  constraint hps_uat_attempt_run_tenant_fk foreign key(run_id,tenant_id)
+    references public.hps_uat_runs(id,tenant_id) on delete restrict
+);
+create index if not exists hps_uat_attempt_latest_idx on public.hps_uat_attempts(tenant_id,run_id,test_id,created_at desc,id desc);
+create index if not exists hps_uat_attempt_tester_idx on public.hps_uat_attempts(tester_user_id,created_at desc);
+
+create or replace function public.hps_reject_uat_attempt_mutation()
+returns trigger language plpgsql security invoker set search_path=public as $$
+begin
+  raise exception 'UAT attempts are append-only; record a new retest attempt instead';
+end; $$;
+
+drop trigger if exists hps_uat_attempts_immutable on public.hps_uat_attempts;
+create trigger hps_uat_attempts_immutable
+before update or delete on public.hps_uat_attempts
+for each row execute function public.hps_reject_uat_attempt_mutation();
+
+create or replace function public.hps_guard_uat_run_signoff()
+returns trigger language plpgsql security definer set search_path=public,hps_private as $$
+declare
+  v_uid uuid:=auth.uid();
+  v_role text;
+  v_total integer;
+  v_pass integer;
+begin
+  if v_uid is null then raise exception 'Authentication required'; end if;
+  if not hps_private.is_member(old.tenant_id) then raise exception 'No tenant access'; end if;
+  v_role:=hps_private.role_for(old.tenant_id);
+  if v_role<>'Procurement Head/Admin' then raise exception 'Procurement Head/Admin required for UAT sign-off'; end if;
+  if old.status='SIGNED_OFF' then raise exception 'Signed-off UAT run is immutable'; end if;
+  if new.tenant_id is distinct from old.tenant_id
+     or new.build_id is distinct from old.build_id
+     or new.created_by is distinct from old.created_by
+     or new.created_at is distinct from old.created_at then
+    raise exception 'Only UAT sign-off fields may change';
+  end if;
+  if new.status<>'SIGNED_OFF' then raise exception 'UAT run update must be final SIGNED_OFF transition'; end if;
+
+  select count(*),count(*) filter(where result='PASS')
+  into v_total,v_pass
+  from (
+    select distinct on (a.test_id) a.test_id,a.result
+    from public.hps_uat_attempts a
+    where a.run_id=old.id and a.tenant_id=old.tenant_id
+    order by a.test_id,a.created_at desc,a.id desc
+  ) latest;
+
+  if v_total<>24 or v_pass<>24 then
+    raise exception 'All 24 latest UAT results must be PASS before sign-off';
+  end if;
+
+  new.signed_off_by:=v_uid;
+  new.signed_off_at:=now();
+  new.updated_at:=now();
+
+  insert into public.hps_audit_log(tenant_id,request_id,user_id,actor_name,actor_role,action,detail)
+  values(
+    old.tenant_id,null,v_uid,
+    coalesce((select display_name from public.hps_user_profiles where id=v_uid),
+             (select email from public.hps_user_profiles where id=v_uid)),
+    v_role,'UAT_SIGNOFF',
+    jsonb_build_object('uatRunId',old.id,'buildId',old.build_id,'passCount',v_pass,'note',new.signoff_note)
+  );
+  return new;
+end; $$;
+
+drop trigger if exists hps_uat_run_signoff_guard on public.hps_uat_runs;
+create trigger hps_uat_run_signoff_guard
+before update on public.hps_uat_runs
+for each row execute function public.hps_guard_uat_run_signoff();
+
+revoke all on function public.hps_reject_uat_attempt_mutation() from public,anon,authenticated;
+revoke all on function public.hps_guard_uat_run_signoff() from public,anon,authenticated;
+
+alter table public.hps_uat_runs enable row level security;
+alter table public.hps_uat_attempts enable row level security;
+
+drop policy if exists hps_uat_runs_read on public.hps_uat_runs;
+create policy hps_uat_runs_read on public.hps_uat_runs
+for select to authenticated
+using(public.hps_is_member(tenant_id));
+
+drop policy if exists hps_uat_runs_insert on public.hps_uat_runs;
+create policy hps_uat_runs_insert on public.hps_uat_runs
+for insert to authenticated
+with check(
+  public.hps_is_member(tenant_id)
+  and public.hps_role(tenant_id)<>'Auditor'
+  and created_by=(select auth.uid())
+  and status='IN_PROGRESS'
+  and signed_off_by is null
+  and signed_off_at is null
+);
+
+drop policy if exists hps_uat_runs_signoff on public.hps_uat_runs;
+create policy hps_uat_runs_signoff on public.hps_uat_runs
+for update to authenticated
+using(
+  public.hps_is_member(tenant_id)
+  and public.hps_role(tenant_id)='Procurement Head/Admin'
+  and status='IN_PROGRESS'
+)
+with check(
+  public.hps_is_member(tenant_id)
+  and public.hps_role(tenant_id)='Procurement Head/Admin'
+  and status='SIGNED_OFF'
+  and signed_off_by=(select auth.uid())
+  and signed_off_at is not null
+);
+
+drop policy if exists hps_uat_attempts_read on public.hps_uat_attempts;
+create policy hps_uat_attempts_read on public.hps_uat_attempts
+for select to authenticated
+using(public.hps_is_member(tenant_id));
+
+drop policy if exists hps_uat_attempts_insert on public.hps_uat_attempts;
+create policy hps_uat_attempts_insert on public.hps_uat_attempts
+for insert to authenticated
+with check(
+  public.hps_is_member(tenant_id)
+  and public.hps_role(tenant_id)<>'Auditor'
+  and tester_user_id=(select auth.uid())
+  and tester_role=public.hps_role(tenant_id)
+  and exists(
+    select 1 from public.hps_uat_runs r
+    where r.id=run_id
+      and r.tenant_id=tenant_id
+      and r.status='IN_PROGRESS'
+  )
+);
+
+revoke all on table public.hps_uat_runs from anon,authenticated;
+revoke all on table public.hps_uat_attempts from anon,authenticated;
+grant select on table public.hps_uat_runs to authenticated;
+grant insert(tenant_id,build_id,created_by) on table public.hps_uat_runs to authenticated;
+grant update(status,signoff_note) on table public.hps_uat_runs to authenticated;
+grant select on table public.hps_uat_attempts to authenticated;
+grant insert(tenant_id,run_id,test_id,result,tester_user_id,tester_role,evidence,defect_ref,retest_notes,browser_device)
+  on table public.hps_uat_attempts to authenticated;
