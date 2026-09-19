@@ -71,15 +71,26 @@ jobs:
           fi
 
           attempt=1
-          while [ "$attempt" -le 10 ]; do
+          matched=0
+          while [ "$attempt" -le 15 ]; do
             if curl --fail --silent --show-error --max-time 20 "$BASE_URL/api/version" -o /tmp/version.json; then
-              break
+              CURRENT_BUILD="$(node -e 'const fs=require("fs");try{const v=JSON.parse(fs.readFileSync("/tmp/version.json","utf8"));process.stdout.write(String(v.buildId||""));}catch(e){}')"
+              if [ "$CURRENT_BUILD" = "$EXPECTED_BUILD" ]; then
+                matched=1
+                break
+              fi
+              echo "Deployment propagation pending: expected $EXPECTED_BUILD, currently $CURRENT_BUILD"
             fi
             attempt=$((attempt + 1))
             sleep 3
           done
 
-          test -s /tmp/version.json
+          if [ "$matched" -ne 1 ]; then
+            echo "Expected build $EXPECTED_BUILD did not become active within verification window."
+            cat /tmp/version.json || true
+            exit 1
+          fi
+
           node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/version.json","utf8"));if(v.buildId!==process.argv[1]){console.error("Unexpected buildId:",v.buildId);process.exit(1)};console.log("Verified build:",v.buildId,"channel:",v.releaseChannel);' "$EXPECTED_BUILD"
 
           curl --fail --silent --show-error --max-time 20 "$BASE_URL/api/health" -o /tmp/health.json
