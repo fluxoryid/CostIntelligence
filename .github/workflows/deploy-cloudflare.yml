@@ -46,6 +46,12 @@ jobs:
       - name: Syntax-check Worker
         run: node --check worker.js
 
+      - name: Syntax-check browser modules
+        run: |
+          for f in app.js auth-sync.js cloud-sync.js source-engine.js providers.js governance-extensions.js procurement-ux.js category-cost-ux.js evidence-component-ux.js document-hub.js advanced-intelligence.js workflow-rbac.js learning-negotiation.js production-health.js bahasa-id.js inaproc-intelligence.js; do
+            node --check "$f"
+          done
+
       - name: Deploy Cloudflare Worker + Static Assets
         uses: cloudflare/wrangler-action@v3
         with:
