@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v9';
+  const id = 'production-2.1-20260919-v10';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -216,4 +216,14 @@ test('login password field IDs remain stable under localization', () => {
   assert.ok(!html.includes('id="authKata sandi"'));
   assert.ok(app.includes("el('gatePassword')"));
   assert.ok(app.includes("el('authPassword')"));
+});
+
+
+test('CalcCore is exported to the browser runtime used by app.js', () => {
+  const calc = read('calc-core.js');
+  const app = read('app.js');
+  assert.ok(calc.includes('window.CalcCore = CALC_CORE_API'));
+  assert.ok(calc.includes('module.exports = CALC_CORE_API'));
+  assert.ok(app.includes('window.CalcCore.generateClassification'));
+  assert.ok(app.includes('Sesi valid, tetapi aplikasi gagal dimulai:'));
 });

@@ -1065,16 +1065,22 @@ var MATURITY_LABELS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Export for Node (tests) — harmless no-op in the browser
+// Shared export surface for browser runtime and Node tests.
+// Keep one API object so browser and test environments cannot silently drift.
 // ---------------------------------------------------------------------------
+const CALC_CORE_API = {
+  CATEGORIES, CLASSIFICATION_TEMPLATES, SCENARIO_DRIVER_MAP, RESEARCH_OBJECTIVES, MATURITY_LABELS, CALCULATION_MODES,
+  hashStr, mulberry32, percentile, fmtIDR, categoryOf, calculationModeOf, isDemoMode, isAcceptedEvidenceStatus, parseMarketBenchmarks, assessRuntimeMode,
+  generateClassification, computeCoverage, generateSources, applyLiveFxOverride, generateCostDrivers,
+  scenarioAdjustment, estimateBasePrice, shouldCostStack, bufferStockCost, bufferStockBreakdown,
+  adjustedUnitRate, rateAdjustmentBreakdown, toDisplayBasis, getRateModel, purchaseDepreciationRate, applyLiveWbOverride, buildCalculationTrace, applyLiveLkppOverride, applyLiveKursPajakOverride, applyLiveBiRateOverride, applyLiveEsdmOverride, applyLiveEiaOverride,
+  modelA, modelB, modelC, modelD, triangulate, computeConfidence,
+  generateNegotiation, computeOutcomeLearning, categoryMaturity,
+};
+
+if (typeof window !== 'undefined') {
+  window.CalcCore = CALC_CORE_API;
+}
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    CATEGORIES, CLASSIFICATION_TEMPLATES, SCENARIO_DRIVER_MAP, RESEARCH_OBJECTIVES, MATURITY_LABELS, CALCULATION_MODES,
-    hashStr, mulberry32, percentile, fmtIDR, categoryOf, calculationModeOf, isDemoMode, isAcceptedEvidenceStatus, parseMarketBenchmarks, assessRuntimeMode,
-    generateClassification, computeCoverage, generateSources, applyLiveFxOverride, generateCostDrivers,
-    scenarioAdjustment, estimateBasePrice, shouldCostStack, bufferStockCost, bufferStockBreakdown,
-    adjustedUnitRate, rateAdjustmentBreakdown, toDisplayBasis, getRateModel, purchaseDepreciationRate, applyLiveWbOverride, buildCalculationTrace, applyLiveLkppOverride, applyLiveKursPajakOverride, applyLiveBiRateOverride, applyLiveEsdmOverride, applyLiveEiaOverride,
-    modelA, modelB, modelC, modelD, triangulate, computeConfidence,
-    generateNegotiation, computeOutcomeLearning, categoryMaturity,
-  };
+  module.exports = CALC_CORE_API;
 }
