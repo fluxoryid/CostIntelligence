@@ -521,7 +521,6 @@
       if (result && result.error) notify('Penyimpanan ke cloud gagal: ' + result.error + '.', 'error');
       else notify('Snapshot berhasil dikirim ke sinkronisasi cloud. Kebijakan RLS tetap menjadi batas otorisasi.', 'success');
     });
-    if (window.HPSCloud.pushAuditLog) window.HPSCloud.pushAuditLog({ tenantId:TENANT_ID, ts:isoNow(), user:currentUser.name, role:currentUser.role, action:'Saved HPS snapshot', detail:req.input.productName });
   }
 
   function updateCloudBadge() {
