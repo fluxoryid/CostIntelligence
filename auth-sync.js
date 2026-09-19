@@ -45,7 +45,7 @@
   function resetPassword(email){
     var c=getClient();if(!c)return Promise.resolve({error:'Supabase belum dikonfigurasi.'});
     var redirectTo='';
-    try{redirectTo=window.location.origin+window.location.pathname;}catch(e){}
+    try{redirectTo=new URL('password-reset.html',window.location.origin+'/').href;}catch(e){redirectTo=window.location.origin+'/password-reset.html';}
     return c.auth.resetPasswordForEmail(email,{redirectTo:redirectTo}).then(function(r){
       if(r.error)return{error:r.error.message};
       return{ok:true,redirectTo:redirectTo};
