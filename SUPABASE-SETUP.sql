@@ -921,8 +921,8 @@ with check(
   and tester_role=public.hps_role(tenant_id)
   and exists(
     select 1 from public.hps_uat_runs r
-    where r.id=run_id
-      and r.tenant_id=tenant_id
+    where r.id=hps_uat_attempts.run_id
+      and r.tenant_id=hps_uat_attempts.tenant_id
       and r.status='IN_PROGRESS'
   )
 );
