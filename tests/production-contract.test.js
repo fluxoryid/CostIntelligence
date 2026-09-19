@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v8';
+  const id = 'production-2.1-20260919-v9';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -204,4 +204,16 @@ test('canonical password reset route avoids Cloudflare HTML redirect in recovery
   assert.ok(html.includes('href="/password-reset"'));
   assert.ok(auth.includes("'/password-reset'"));
   assert.ok(!html.includes('href="password-reset.html"'));
+});
+
+
+test('login password field IDs remain stable under localization', () => {
+  const html = read('index.html');
+  const app = read('app.js');
+  assert.ok(html.includes('id="gatePassword"'));
+  assert.ok(html.includes('id="authPassword"'));
+  assert.ok(!html.includes('id="gateKata sandi"'));
+  assert.ok(!html.includes('id="authKata sandi"'));
+  assert.ok(app.includes("el('gatePassword')"));
+  assert.ok(app.includes("el('authPassword')"));
 });
