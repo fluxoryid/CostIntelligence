@@ -142,6 +142,56 @@
       .then(function(r){if(r.error)throw r.error;return{ok:true};}).catch(errResult);
   }
 
+  function getUatRun(buildId){
+    var c=client(); if(!c||!buildId)return Promise.resolve(null);
+    return c.from('hps_uat_runs').select('*').eq('tenant_id',tenant()).eq('build_id',buildId).maybeSingle()
+      .then(function(r){if(r.error)throw r.error;status='online';return r.data||null;}).catch(function(e){console.warn('[HPSCloud UAT]',e&&e.message||e);return null;});
+  }
+
+  function createUatRun(buildId){
+    var c=client(); if(!c)return Promise.resolve({error:'Supabase is not configured'});
+    if(!buildId)return Promise.resolve({error:'Build ID is required'});
+    return Promise.all([currentUserId(c),getUatRun(buildId)]).then(function(v){
+      var uid=v[0],existing=v[1]; if(!uid)throw new Error('No authenticated session'); if(existing)return existing;
+      return c.from('hps_uat_runs').insert({tenant_id:tenant(),build_id:buildId,created_by:uid}).select('*').single().then(function(r){
+        if(r.error){
+          if(r.error.code==='23505')return getUatRun(buildId);
+          throw r.error;
+        }
+        status='online'; return r.data;
+      });
+    }).catch(errResult);
+  }
+
+  function listUatAttempts(runId){
+    var c=client(); if(!c||!runId)return Promise.resolve([]);
+    return c.from('hps_uat_attempts').select('*').eq('tenant_id',tenant()).eq('run_id',runId).order('created_at',{ascending:true})
+      .then(function(r){if(r.error)throw r.error;status='online';return r.data||[];}).catch(function(e){console.warn('[HPSCloud UAT]',e&&e.message||e);return[];});
+  }
+
+  function recordUatAttempt(runId,event){
+    var c=client(); if(!c)return Promise.resolve({error:'Supabase is not configured'});
+    event=event||{}; if(!runId)return Promise.resolve({error:'UAT run is required'});
+    var userPromise=window.HPSAuth&&window.HPSAuth.getSession?window.HPSAuth.getSession():Promise.resolve(null);
+    return userPromise.then(function(user){
+      if(!user||!user.id)throw new Error('No authenticated tenant session');
+      return c.from('hps_uat_attempts').insert({
+        tenant_id:tenant(),run_id:runId,test_id:event.testId,result:event.result,
+        tester_user_id:user.id,tester_role:user.role,evidence:event.evidence,
+        defect_ref:event.defectRef||null,retest_notes:event.retestNotes||null,
+        browser_device:event.browserDevice||null
+      }).select('*').single();
+    }).then(function(r){if(r.error)throw r.error;status='online';return{ok:true,attempt:r.data};}).catch(errResult);
+  }
+
+  function signoffUatRun(runId,note){
+    var c=client(); if(!c)return Promise.resolve({error:'Supabase is not configured'});
+    if(!runId)return Promise.resolve({error:'UAT run is required'});
+    return c.from('hps_uat_runs').update({status:'SIGNED_OFF',signoff_note:note||null})
+      .eq('tenant_id',tenant()).eq('id',runId).eq('status','IN_PROGRESS').select('*').single()
+      .then(function(r){if(r.error)throw r.error;status='online';return{ok:true,run:r.data};}).catch(errResult);
+  }
+
   function health(){
     var c=client(); if(!c)return Promise.resolve({configured:false,status:'LOCAL_ONLY'});
     return currentUser(c).then(function(u){return{configured:true,status:u?'AUTHENTICATED':'SIGNED_OUT',user:u&&u.email||null,tenant:tenant()};}).catch(function(){return{configured:true,status:'ERROR'};});
@@ -154,6 +204,7 @@
     saveWorkflowDraft:saveWorkflowDraft,transitionRequest:transitionRequest,getRequest:getRequest,listRequests:listRequests,listReviews:listReviews,
     findDocumentByHash:findDocumentByHash,nextDocumentVersion:nextDocumentVersion,uploadEvidenceDocument:uploadEvidenceDocument,listDocuments:listDocuments,upsertComponentEvidence:upsertComponentEvidence,
     pullLearning:pullLearning,pushLearningOutcome:pushLearningOutcome,approveLearningOutcome:approveLearningOutcome,saveNegotiationOutcome:saveNegotiationOutcome,
+    getUatRun:getUatRun,createUatRun:createUatRun,listUatAttempts:listUatAttempts,recordUatAttempt:recordUatAttempt,signoffUatRun:signoffUatRun,
     getCurrentRequestId:getCurrentRequestId,rememberRequest:rememberRequest,health:health,getStatus:function(){return status;}
   };
 })();

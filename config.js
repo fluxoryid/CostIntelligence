@@ -8,7 +8,7 @@ window.HPS_CONFIG = {
   TENANT_ID: 't1',
   CALCULATION_MODE: 'HYBRID_STRICT',
   ALLOW_SELF_SIGNUP: false,
-  EXPECTED_WORKER_BUILD: 'production-2.1-20260919-v3',
+  EXPECTED_WORKER_BUILD: 'production-2.1-20260919-v4',
   INAPROC_TRANSACTION_ENABLED: false,
   SUPABASE_URL: 'https://bobrilytsufxtqqqgaym.supabase.co',
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_K8O1eFVrt2nvl2N3l_q9ow_cRQXFGM2'
@@ -28,7 +28,8 @@ window.HPS_CONFIG = {
     'advanced-intelligence.js',
     'workflow-rbac.js',
     'learning-negotiation.js',
-    'production-health.js'
+    'production-health.js',
+    'uat-console.js'
   ];
   if (window.HPS_CONFIG && window.HPS_CONFIG.INAPROC_TRANSACTION_ENABLED) {
     files.splice(3, 0, 'inaproc-intelligence.js');
