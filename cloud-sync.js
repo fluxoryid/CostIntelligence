@@ -42,7 +42,12 @@
     return saveWorkflowDraft(requestToSnapshot(req));
   }
 
-  // Audit events are authoritative only when emitted by server-side workflow RPCs.\n  // Keep this compatibility method as a no-op so older callers cannot write directly\n  // to hps_audit_log from the browser.\n  function pushAuditLog(){ return Promise.resolve({ok:true,serverManaged:true}); }\n\n  function saveWorkflowDraft(snapshot){
+  // Audit events are authoritative only when emitted by server-side workflow RPCs.
+  // Keep this compatibility method as a no-op so older callers cannot write directly
+  // to hps_audit_log from the browser.
+  function pushAuditLog(){ return Promise.resolve({ok:true,serverManaged:true}); }
+
+  function saveWorkflowDraft(snapshot){
     var c=client(); if(!c){status='offline';return Promise.resolve({localOnly:true});}
     var id=snapshot.requestId||getCurrentRequestId(); rememberRequest(id);
     return Promise.all([currentUserId(c),hashText(JSON.stringify(snapshot))]).then(function(v){var uid=v[0],hash=v[1];if(!uid)throw new Error('No authenticated session');
