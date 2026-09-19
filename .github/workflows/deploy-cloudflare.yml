@@ -48,7 +48,7 @@ jobs:
 
       - name: Syntax-check browser modules
         run: |
-          for f in app.js auth-sync.js cloud-sync.js source-engine.js providers.js governance-extensions.js procurement-ux.js category-cost-ux.js evidence-component-ux.js document-hub.js advanced-intelligence.js workflow-rbac.js learning-negotiation.js production-health.js uat-console.js bahasa-id.js inaproc-intelligence.js; do
+          for f in app.js auth-sync.js cloud-sync.js source-engine.js providers.js governance-extensions.js procurement-ux.js category-cost-ux.js evidence-component-ux.js document-hub.js advanced-intelligence.js workflow-rbac.js learning-negotiation.js production-health.js uat-console.js password-recovery.js bahasa-id.js inaproc-intelligence.js; do
             node --check "$f"
           done
 
