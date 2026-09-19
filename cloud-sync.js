@@ -42,17 +42,7 @@
     return saveWorkflowDraft(requestToSnapshot(req));
   }
 
-  function pushAuditLog(entry){
-    var c=client(); if(!c)return Promise.resolve({localOnly:true});
-    return currentUserId(c).then(function(uid){
-      if(!uid)throw new Error('No authenticated session');
-      var detail=entry.detail;
-      if(detail!=null && (typeof detail!=='object' || Array.isArray(detail))) detail={value:detail};
-      return c.from('hps_audit_log').insert({tenant_id:tenant(),user_id:uid,request_id:entry.requestId||getCurrentRequestId()||null,action:entry.action,detail:detail||null,ts:entry.ts||now()});
-    }).then(function(r){if(r&&r.error)throw r.error;return{ok:true};}).catch(errResult);
-  }
-
-  function saveWorkflowDraft(snapshot){
+  // Audit events are authoritative only when emitted by server-side workflow RPCs.\n  // Keep this compatibility method as a no-op so older callers cannot write directly\n  // to hps_audit_log from the browser.\n  function pushAuditLog(){ return Promise.resolve({ok:true,serverManaged:true}); }\n\n  function saveWorkflowDraft(snapshot){
     var c=client(); if(!c){status='offline';return Promise.resolve({localOnly:true});}
     var id=snapshot.requestId||getCurrentRequestId(); rememberRequest(id);
     return Promise.all([currentUserId(c),hashText(JSON.stringify(snapshot))]).then(function(v){var uid=v[0],hash=v[1];if(!uid)throw new Error('No authenticated session');
