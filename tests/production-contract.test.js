@@ -15,7 +15,7 @@ test('browser config contains only a publishable Supabase credential', () => {
 test('worker and config agree on Production 2.1 build id', () => {
   const cfg = read('config.js');
   const worker = read('worker.js');
-  const id = 'production-2.1-20260919-v7';
+  const id = 'production-2.1-20260919-v8';
   assert.ok(cfg.includes(id));
   assert.ok(worker.includes(id));
   assert.ok(worker.includes("releaseChannel: 'production'"));
@@ -180,12 +180,12 @@ test('dedicated password reset page is wired for mobile-safe navigation', () => 
   const resetJs = read('password-reset-page.js');
   const auth = read('auth-sync.js');
   const worker = read('worker.js');
-  assert.ok(html.includes('href="password-reset.html"'));
+  assert.ok(html.includes('href="/password-reset"'));
   assert.ok(resetHtml.includes('id="sendReset"'));
   assert.ok(resetHtml.includes('id="savePassword"'));
   assert.ok(resetHtml.includes('password-reset-page.js'));
   assert.ok(resetJs.includes("event==='PASSWORD_RECOVERY'"));
-  assert.ok(auth.includes("password-reset.html"));
+  assert.ok(auth.includes("/password-reset"));
   assert.ok(worker.includes('dedicatedPasswordResetPage: true'));
 });
 
@@ -193,6 +193,15 @@ test('dedicated password reset page is wired for mobile-safe navigation', () => 
 test('forgot-password native links are not intercepted by legacy dialog handler', () => {
   const html = read('index.html');
   const recovery = read('password-recovery.js');
-  assert.ok(html.includes('href="password-reset.html"'));
+  assert.ok(html.includes('href="/password-reset"'));
   assert.ok(recovery.includes("e&&e.tagName!=='A'"));
+});
+
+
+test('canonical password reset route avoids Cloudflare HTML redirect in recovery callback', () => {
+  const html = read('index.html');
+  const auth = read('auth-sync.js');
+  assert.ok(html.includes('href="/password-reset"'));
+  assert.ok(auth.includes("'/password-reset'"));
+  assert.ok(!html.includes('href="password-reset.html"'));
 });
