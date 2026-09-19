@@ -799,7 +799,7 @@ create table if not exists public.hps_uat_attempts (
   constraint hps_uat_attempt_run_tenant_fk foreign key(run_id,tenant_id)
     references public.hps_uat_runs(id,tenant_id) on delete restrict
 );
-create index if not exists hps_uat_attempt_latest_idx on public.hps_uat_attempts(tenant_id,run_id,test_id,created_at desc,id desc);
+create index if not exists hps_uat_attempt_run_tenant_idx on public.hps_uat_attempts(run_id,tenant_id);\ncreate index if not exists hps_uat_attempt_latest_idx on public.hps_uat_attempts(tenant_id,run_id,test_id,created_at desc,id desc);
 create index if not exists hps_uat_attempt_tester_idx on public.hps_uat_attempts(tester_user_id,created_at desc);
 
 create or replace function public.hps_reject_uat_attempt_mutation()
