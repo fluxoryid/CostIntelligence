@@ -104,32 +104,8 @@
     var benchmarks = [1,2,3].map(function (i) {
       var value = num('benchmark' + i); if (value <= 0) return null;
       var key = el('benchmark' + i + 'Type').value;
-      var meta = key === 'INAPROC_TRANSACTION' && window.HPSInaproc && window.HPSInaproc.getSelectedBenchmark
-        ? window.HPSInaproc.getSelectedBenchmark(i) : null;
-      var publishedDate = meta && meta.transactionDate ? meta.transactionDate : null;
-      var gov = window.HPSSourceEngine
-        ? window.HPSSourceEngine.scoreSource(key, {retrievedAt:(meta&&meta.retrievedAt)||isoNow(),publishedDate:publishedDate})
-        : {allowed:true,label:key,grade:'ACCEPTABLE'};
-      var hasRequiredInaprocProvenance = key !== 'INAPROC_TRANSACTION' || !!(meta && meta.reference && meta.retrievedAt && meta.priceBasis && meta.priceBasis !== 'UNVERIFIED');
-      return {
-        value:value,
-        sourceKey:key,
-        status:(gov.allowed && hasRequiredInaprocProvenance) ? 'USER PROVIDED' : 'REJECTED',
-        source:gov.label,
-        observedAt:publishedDate || isoNow(),
-        reference:meta&&meta.reference||null,
-        vendor:meta&&meta.vendor||null,
-        quantity:meta&&meta.quantity||null,
-        packageName:meta&&meta.packageName||null,
-        itemName:meta&&meta.itemName||null,
-        priceBasis:meta&&meta.priceBasis||null,
-        rawUnitPrice:meta&&meta.rawUnitPrice||null,
-        normalizedUnitPrice:meta&&meta.normalizedUnitPrice||null,
-        taxPct:meta&&meta.taxPct||null,
-        sourceUrl:meta&&meta.sourceUrl||null,
-        retrievedAt:meta&&meta.retrievedAt||isoNow(),
-        governance:gov
-      };
+      var gov = window.HPSSourceEngine ? window.HPSSourceEngine.scoreSource(key, {retrievedAt:isoNow()}) : {allowed:true,label:key,grade:'ACCEPTABLE'};
+      return { value:value, sourceKey:key, status:gov.allowed ? 'USER PROVIDED' : 'REJECTED', source:gov.label, observedAt:isoNow(), governance:gov };
     }).filter(Boolean);
     var input = {
       businessUnit: '', requester: currentUser ? currentUser.name : 'Local User',
@@ -154,29 +130,7 @@
     req.sources = applyLiveDataOverrides(window.CalcCore.generateSources(input, true));
     // Explicit market comparables are evidence objects, not anonymous numbers.
     (input.marketBenchmarks || []).forEach(function (b, i) {
-      req.sources.push({
-        sourceKey:b.sourceKey,
-        name:(b.source || 'Pembanding') + ' #' + (i + 1),
-        status:b.status || 'USER PROVIDED',
-        value:b.value,
-        publishedDate:b.observedAt || null,
-        retrievedAt:b.retrievedAt || isoNow(),
-        freshness:'Fresh',
-        trustScore:b.governance ? b.governance.score : 75,
-        reference:b.reference || null,
-        vendor:b.vendor || null,
-        quantity:b.quantity || null,
-        packageName:b.packageName || null,
-        itemName:b.itemName || null,
-        priceBasis:b.priceBasis || null,
-        rawUnitPrice:b.rawUnitPrice || null,
-        normalizedUnitPrice:b.normalizedUnitPrice || null,
-        taxPct:b.taxPct || null,
-        sourceUrl:b.sourceUrl || null,
-        note:b.sourceKey==='INAPROC_TRANSACTION'
-          ? 'Riwayat transaksi resmi Data INAPROC; dipilih pengguna setelah verifikasi basis harga dan tetap memerlukan telaah kesebandingan spesifikasi, kuantitas, lokasi, pajak, ongkir, periode, dan ruang lingkup.'
-          : 'Pembanding yang diatestasi pengguna; kesebandingan spesifikasi dan ketentuan komersial tetap menjadi tanggung jawab peninjau.'
-      });
+      req.sources.push({ sourceKey:b.sourceKey, name:(b.source || 'Pembanding') + ' #' + (i + 1), status:b.status || 'USER PROVIDED', value:b.value, publishedDate:b.observedAt || null, retrievedAt:isoNow(), freshness:'Fresh', trustScore:b.governance ? b.governance.score : 75, note:'Pembanding yang diatestasi pengguna; kesebandingan spesifikasi dan ketentuan komersial tetap menjadi tanggung jawab peninjau.' });
     });
     if (window.HPSSourceEngine) {
       req.sources = req.sources.map(function (src) {
