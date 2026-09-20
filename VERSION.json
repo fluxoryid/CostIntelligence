@@ -1,15 +1,20 @@
 {
   "name": "HPS Intelligence",
   "release": "Production 2.0 RC",
-  "date": "2026-09-18",
+  "date": "2026-09-20",
   "workerBuild": "production-complete-20260916-v14",
   "defaultCalculationMode": "HYBRID_STRICT",
   "syntheticProductionEvidence": false,
   "multiUserArchitecture": "Cloudflare Worker + Supabase Auth/PostgreSQL/Storage",
-  "productionBackendStatus": "live Supabase backend and Cloudflare Worker runtime verified; final browser/team UAT pending",
+  "productionBackendStatus": "live Supabase backend; credential-gated production application",
   "supabaseProjectRef": "bobrilytsufxtqqqgaym",
   "tenantId": "t1",
   "theme": "Aqua / Royal / Poppins",
-  "cloudflareDeploymentStatus": "verified",
-  "productionUrl": "https://costintelligence-pages.procurement-e61.workers.dev"
+  "cloudflareDeploymentStatus": "pending merge/deploy verification",
+  "productionUrl": "https://costintelligence-pages.procurement-e61.workers.dev",
+  "version": "2.1.0",
+  "label": "Production 2.1",
+  "buildId": "production-2.1-20260920-v1",
+  "releaseChannel": "production",
+  "notes": "Production scope includes credential gate, Bahasa Indonesia UI, dated macro parameters, Principal/OEM discount adjustment, Reset HPS, governed workflow and existing verified provider adapters. LKPP Open Data and authenticated INAPROC transaction-history research are deferred."
 }
